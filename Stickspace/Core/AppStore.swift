@@ -66,7 +66,7 @@ final class AppStore: ObservableObject {
             Block(type: .code, text: "npm run dev"),
         ])
         workspace.isExpanded = true
-        state.groups = [StickGroup(sticks: [workspace, Stick(name: "Links"), Stick(name: "Personal")])]
+        state.groups = [StickGroup(sticks: [workspace, Stick(name: "Links"), Stick(name: "Personal")], name: "Space")]
     }
 
     // MARK: Theme / group settings
@@ -76,6 +76,37 @@ final class AppStore: ObservableObject {
     func setPinned(_ pinned: Bool, group id: UUID) {
         guard let g = groupIndex(id) else { return }
         state.groups[g].isPinned = pinned
+    }
+
+    func renameSpace(_ id: UUID, to name: String) {
+        guard let g = groupIndex(id) else { return }
+        let trimmed = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return }
+        state.groups[g].name = trimmed
+    }
+
+    func setCollapsed(_ collapsed: Bool, space id: UUID) {
+        guard let g = groupIndex(id) else { return }
+        state.groups[g].isCollapsed = collapsed
+        if collapsed { hideRevealed(inGroup: id); if editingBlock != nil { editingBlock = nil } }
+    }
+
+    @discardableResult
+    func addSpace(name: String, groups: [Stick] = []) -> UUID {
+        let space = StickGroup(sticks: groups, name: name)
+        state.groups.append(space)
+        activeGroupID = space.id
+        return space.id
+    }
+
+    func deleteSpace(_ id: UUID) {
+        guard let g = groupIndex(id) else { return }
+        let space = state.groups[g]
+        hideRevealed(inGroup: id)
+        state.groups.remove(at: g)
+        pushUndo("Space deleted") { [unowned self] in
+            state.groups.insert(space, at: min(g, state.groups.count))
+        }
     }
 
     func setGroupHidden(_ hidden: Bool, group id: UUID) {
@@ -123,7 +154,7 @@ final class AppStore: ObservableObject {
 
     /// Inserts copies with fresh identifiers; never overwrites anything existing.
     @discardableResult
-    func insert(_ sticks: [Stick], group id: UUID?, atVisible index: Int? = nil) -> [UUID] {
+    func insert(_ sticks: [Stick], group id: UUID?, atVisible index: Int? = nil, spaceName: String = "Space") -> [UUID] {
         var fresh = sticks.map { s -> Stick in
             var c = s
             c.id = UUID()
@@ -137,8 +168,7 @@ final class AppStore: ObservableObject {
             state.groups[g].sticks.insert(contentsOf: fresh, at: at)
         } else {
             for i in fresh.indices { fresh[i].isHidden = false }
-            state.groups.append(StickGroup(sticks: fresh))
-            activeGroupID = state.groups[state.groups.count - 1].id
+            addSpace(name: spaceName, groups: fresh)
         }
         return ids
     }
@@ -179,17 +209,10 @@ final class AppStore: ObservableObject {
         guard let l = locate(stick: id) else { return }
         let group = state.groups[l.group]
         let stick = group.sticks[l.stick]
-        let removedGroup = group.sticks.count == 1
         hideRevealed(inStick: id)
-        if removedGroup {
-            state.groups.remove(at: l.group)
-        } else {
-            state.groups[l.group].sticks.remove(at: l.stick)
-        }
-        pushUndo("Stick deleted") { [unowned self] in
-            if removedGroup {
-                state.groups.insert(group, at: min(l.group, state.groups.count))
-            } else if let g = groupIndex(group.id) {
+        state.groups[l.group].sticks.remove(at: l.stick)
+        pushUndo("Group deleted") { [unowned self] in
+            if let g = groupIndex(group.id) {
                 state.groups[g].sticks.insert(stick, at: min(l.stick, state.groups[g].sticks.count))
             }
         }
@@ -217,6 +240,16 @@ final class AppStore: ObservableObject {
             guard $0.text != text else { return }
             $0.text = text
         }
+    }
+
+    func setTitle(_ title: String, block id: UUID) { updateBlock(id) { $0.title = title } }
+    func setTags(_ tags: [String], block id: UUID) { updateBlock(id) { $0.tags = Tags.clean(tags) } }
+
+    /// Every tag in use, for suggestions: most used first.
+    var knownTags: [String] {
+        var count: [String: Int] = [:]
+        for b in state.groups.flatMap(\.sticks).flatMap(\.blocks) { for t in b.tags { count[t, default: 0] += 1 } }
+        return count.sorted { ($1.value, $0.key) < ($0.value, $1.key) }.map(\.key)
     }
 
     func setType(_ type: BlockType, block id: UUID) { updateBlock(id) { $0.type = type } }
@@ -251,7 +284,7 @@ final class AppStore: ObservableObject {
         hideReveal(id)
         if editingBlock == id { editingBlock = nil }
         state.groups[l.group].sticks[l.stick].blocks.remove(at: l.block)
-        pushUndo("Line deleted") { [unowned self] in
+        pushUndo("Entity deleted") { [unowned self] in
             guard let s = locate(stick: stickID) else { return }
             let count = state.groups[s.group].sticks[s.stick].blocks.count
             state.groups[s.group].sticks[s.stick].blocks.insert(block, at: min(l.block, count))

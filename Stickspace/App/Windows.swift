@@ -112,6 +112,7 @@ final class GroupWindowController: NSObject, NSWindowDelegate {
 
     func update(_ group: StickGroup) {
         kick()
+        panel.title = group.name
         zoom = CGFloat(group.zoom)
         let width = Metrics.width * zoom
         if abs(panel.frame.width - width) > 0.5 {
@@ -296,26 +297,35 @@ final class HelperWindows: NSObject, NSWindowDelegate {
 
     init(store: AppStore) { self.store = store }
 
-    /// New stick in a stack, or (group == nil) a new stack.
+    /// New group in a space, or (group == nil) a new space.
     func showNewStick(group: UUID?, index: Int?) {
         presentApp("new") { close in NewStickView(store: self.store, group: group, visibleIndex: index, close: close) }
     }
 
     func showRename(stick: UUID) {
-        presentApp("rename") { close in RenameView(store: self.store, stickID: stick, close: close) }
+        presentApp("rename") { close in RenameView(store: self.store, target: .group(stick), close: close) }
     }
 
-    /// `group == nil` imports a whole stack as a new window; otherwise one stick into that stack.
+    func showRename(space: UUID) {
+        presentApp("rename") { close in RenameView(store: self.store, target: .space(space), close: close) }
+    }
+
+    /// `group == nil` imports a whole space as a new window; otherwise one group into that space.
     func showImport(group: UUID?, index: Int?, initialText: String = "") {
         presentApp("import") { close in
             ImportView(store: self.store, group: group, visibleIndex: index, initialText: initialText, close: close)
         }
     }
 
-    func showExport(stick: UUID, includeSensitive: Bool = false, wholeStack: Bool = false) {
+    func showExport(stick: UUID, includeSensitive: Bool = false, wholeSpace: Bool = false) {
+        guard let space = store.groupID(ofStick: stick) else { return }
         presentApp("export") { close in
-            ExportView(store: self.store, stickID: stick, includeSensitive: includeSensitive, wholeStack: wholeStack, close: close)
+            ExportView(store: self.store, stickID: stick, spaceID: space, includeSensitive: includeSensitive, wholeSpace: wholeSpace, close: close)
         }
+    }
+
+    func showExport(space: UUID) {
+        presentApp("export") { close in ExportView(store: self.store, stickID: nil, spaceID: space, close: close) }
     }
 
     func showAbout(expandAll: Bool = false) {

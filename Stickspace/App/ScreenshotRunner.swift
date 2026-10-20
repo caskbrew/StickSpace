@@ -32,8 +32,9 @@ final class ScreenshotRunner {
     private func full() -> Stick {
         var s = Stick(name: "Workspace", blocks: [
             Block(type: .auto, text: "Keep useful things close."),
-            Block(type: .auto, text: "https://github.com"),
-            Block(type: .auto, text: "https://figma.com"),
+            Block(type: .auto, text: "https://grafana.corp.example.com/d/8fKq2/cluster-overview?orgId=1&var-env=prod", title: "Grafana", tags: ["prod"]),
+            Block(type: .auto, text: "https://grafana.corp.example.com/d/8fKq2/cluster-overview?orgId=1&var-env=stg", title: "Grafana", tags: ["stg"]),
+            Block(type: .auto, text: "https://figma.com", tags: ["dev", "design"]),
             Block(type: .auto, text: "demo-secret", isMasked: true),
             Block(type: .code, text: "npm run dev"),
         ])
@@ -185,7 +186,7 @@ final class ScreenshotRunner {
         multi.blocks.append(Block(type: .text, text: "A hidden line", isHidden: true))
         multi.blocks[0] = Block(type: .text, text: "Multi-line text grows the row\nnaturally, one line at a time,\nwithout a separate editor.")
 
-        struct Variant { let name: String; var sticks: [Stick]; var zoom = 1.0; var pinned = false }
+        struct Variant { let name: String; var sticks: [Stick]; var zoom = 1.0; var pinned = false; var collapsed = false }
         let variants: [Variant] = [
             Variant(name: "01-collapsed", sticks: collapsed()),
             Variant(name: "02-expanded", sticks: [fullStick, Stick(name: "Links"), Stick(name: "Personal")]),
@@ -195,6 +196,8 @@ final class ScreenshotRunner {
             Variant(name: "06-multiline-hidden-line", sticks: [multi]),
             Variant(name: "07-zoom-80", sticks: [fullStick, Stick(name: "Links")], zoom: 0.8),
             Variant(name: "08-zoom-125", sticks: [fullStick, Stick(name: "Links")], zoom: 1.25),
+            Variant(name: "09-space-collapsed", sticks: collapsed(), collapsed: true),
+            Variant(name: "10-empty-space", sticks: []),
         ]
 
         let screen = (NSScreen.main ?? NSScreen.screens[0]).visibleFrame
@@ -202,9 +205,11 @@ final class ScreenshotRunner {
         for (i, v) in variants.enumerated() {
             var g = StickGroup(sticks: v.sticks.map { var s = $0; s.id = UUID(); s.blocks = s.blocks.map { var b = $0; b.id = UUID(); return b }; return s })
             g.isPinned = v.pinned
+            g.name = ["Work", "Production", "Pinned", "Editing", "Personal", "Notes", "Small", "Large", "Collapsed", "Empty"][i]
+            g.isCollapsed = v.collapsed
             g.zoom = v.zoom
             g.originX = Double(screen.minX + 30 + CGFloat(i % 4) * 500)
-            g.topY = Double(screen.maxY - 20 - CGFloat(i / 4) * 330)
+            g.topY = Double(screen.maxY - 20 - CGFloat(i / 4) * 300)
             groups.append(g)
         }
         store.load(AppState(theme: .light, groups: groups))
@@ -245,8 +250,8 @@ final class ScreenshotRunner {
                 ("window-import-stack", "import", { self.helpers.showImport(group: nil, index: nil, initialText: multiJSON) }),
                 ("window-import-empty", "import", { self.helpers.showImport(group: nil, index: nil) }),
                 ("window-import-error", "import", { self.helpers.showImport(group: nil, index: nil, initialText: "{\n  \"sticks\": [\n    { oops }\n  ]\n}") }),
-                ("window-export-stick", "export", { self.helpers.showExport(stick: stickID) }),
-                ("window-export-stack", "export", { self.helpers.showExport(stick: stickID, wholeStack: true) }),
+                ("window-export-group", "export", { self.helpers.showExport(stick: stickID) }),
+                ("window-export-space", "export", { self.helpers.showExport(stick: stickID, wholeSpace: true) }),
                 ("window-export-sensitive", "export", { self.helpers.showExport(stick: stickID, includeSensitive: true) }),
                 ("window-about", "about", { self.helpers.showAbout() }),
                 ("window-about-expanded", "about", { self.helpers.closeAll(); self.helpers.showAbout(expandAll: true) }),

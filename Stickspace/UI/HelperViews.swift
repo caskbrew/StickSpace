@@ -1,9 +1,9 @@
 import SwiftUI
 import UniformTypeIdentifiers
 
-// MARK: - New Stick / New Stack
+// MARK: - New Group / New Space
 
-/// `group == nil` creates a new stack (window) whose first stick is this one.
+/// `group == nil` creates a new space (window); otherwise a group inside that space.
 /// Deliberately bare: just a name field and the two buttons on the glass surface.
 struct NewStickView: View {
     @ObservedObject var store: AppStore
@@ -11,14 +11,22 @@ struct NewStickView: View {
     let visibleIndex: Int?
     let close: () -> Void
 
-    @State private var name = "New Stick"
+    @State private var name: String
     @Environment(\.colorScheme) private var scheme
+
+    init(store: AppStore, group: UUID?, visibleIndex: Int?, close: @escaping () -> Void) {
+        self.store = store
+        self.group = group
+        self.visibleIndex = visibleIndex
+        self.close = close
+        _name = State(initialValue: group == nil ? "New Space" : "New Group")
+    }
 
     private var trimmed: String { name.trimmingCharacters(in: .whitespacesAndNewlines) }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
-            AppTextField(placeholder: group == nil ? "Stack's first stick" : "Stick name", text: $name, onSubmit: create)
+            AppTextField(placeholder: group == nil ? "Space name" : "Group name", text: $name, onSubmit: create)
             HStack {
                 Spacer()
                 AppButton(title: "Cancel", action: close).keyboardShortcut(.cancelAction)
@@ -34,7 +42,7 @@ struct NewStickView: View {
 
     private func create() {
         guard !trimmed.isEmpty else { return }
-        store.addStick(name: trimmed, group: group, atVisible: visibleIndex)
+        if group == nil { store.addSpace(name: trimmed) } else { store.addStick(name: trimmed, group: group, atVisible: visibleIndex) }
         close()
     }
 }
@@ -42,23 +50,28 @@ struct NewStickView: View {
 // MARK: - Rename
 
 struct RenameView: View {
+    enum Target { case group(UUID), space(UUID) }
+
     @ObservedObject var store: AppStore
-    let stickID: UUID
+    let target: Target
     let close: () -> Void
 
     @State private var name: String
 
-    init(store: AppStore, stickID: UUID, close: @escaping () -> Void) {
+    init(store: AppStore, target: Target, close: @escaping () -> Void) {
         self.store = store
-        self.stickID = stickID
+        self.target = target
         self.close = close
-        _name = State(initialValue: store.stick(stickID)?.name ?? "")
+        switch target {
+        case .group(let id): _name = State(initialValue: store.stick(id)?.name ?? "")
+        case .space(let id): _name = State(initialValue: store.groupIndex(id).map { store.state.groups[$0].name } ?? "")
+        }
     }
 
     private var trimmed: String { name.trimmingCharacters(in: .whitespacesAndNewlines) }
 
     var body: some View {
-        AppWindowChrome(title: "Rename Stick", close: close) {
+        AppWindowChrome(title: { if case .space = target { return "Rename Space" } else { return "Rename Group" } }(), close: close) {
             VStack(alignment: .leading, spacing: 8) {
                 Text("Name").font(.system(size: 12)).foregroundStyle(.secondary)
                 AppTextField(placeholder: "Name", text: $name, onSubmit: save)
@@ -76,7 +89,10 @@ struct RenameView: View {
 
     private func save() {
         guard !trimmed.isEmpty else { return }
-        store.renameStick(stickID, to: trimmed)
+        switch target {
+        case .group(let id): store.renameStick(id, to: trimmed)
+        case .space(let id): store.renameSpace(id, to: trimmed)
+        }
         close()
     }
 }
@@ -85,35 +101,43 @@ struct RenameView: View {
 
 struct ExportView: View {
     @ObservedObject var store: AppStore
-    let stickID: UUID
+    /// nil: exporting a space from its own menu (no group to pick).
+    let stickID: UUID?
+    let spaceID: UUID
     let close: () -> Void
 
-    private enum Scope: Hashable { case stick, stack }
+    private enum Scope: Hashable { case group, space }
 
     @State private var scope: Scope
     @State private var includeSensitive: Bool
     @State private var copied = false
     @Environment(\.colorScheme) private var scheme
 
-    init(store: AppStore, stickID: UUID, includeSensitive: Bool = false, wholeStack: Bool = false, close: @escaping () -> Void) {
+    init(store: AppStore, stickID: UUID?, spaceID: UUID, includeSensitive: Bool = false, wholeSpace: Bool = false, close: @escaping () -> Void) {
         self.store = store
         self.stickID = stickID
+        self.spaceID = spaceID
         self.close = close
-        _scope = State(initialValue: wholeStack ? .stack : .stick)
+        _scope = State(initialValue: wholeSpace || stickID == nil ? .space : .group)
         _includeSensitive = State(initialValue: includeSensitive)
     }
 
     private var sticks: [Stick] {
-        if scope == .stack, let gid = store.groupID(ofStick: stickID), let g = store.groupIndex(gid) { return store.state.groups[g].sticks }
-        return store.stick(stickID).map { [$0] } ?? []
+        if scope == .space, let g = store.groupIndex(spaceID) { return store.state.groups[g].sticks }
+        return stickID.flatMap { store.stick($0) }.map { [$0] } ?? []
     }
 
-    private var json: String { Interchange.export(sticks, asSingle: scope == .stick, includeSensitive: includeSensitive) }
+    private var json: String {
+        let name = store.groupIndex(spaceID).map { store.state.groups[$0].name }
+        return Interchange.export(sticks, asSingle: scope == .group, includeSensitive: includeSensitive, spaceName: name)
+    }
 
     var body: some View {
         // Bare surface (no title row): scope switch, JSON, one option row with the Copy button.
         VStack(alignment: .leading, spacing: 10) {
-            AppSegmented(options: [(Scope.stick, "This Stick"), (Scope.stack, "This Stack")], selection: $scope)
+            if stickID != nil {
+                AppSegmented(options: [(Scope.group, "This Group"), (Scope.space, "This Space")], selection: $scope)
+            }
             AppCodeBox { JSONEditor(text: .constant(json), editable: false) }
                 .frame(height: 190)
             HStack(alignment: .center) {
@@ -143,8 +167,8 @@ struct ExportView: View {
 
 // MARK: - Import (paste only)
 
-/// `group == nil`: imports a whole stack (a list of sticks) as a new window.
-/// Otherwise: imports exactly one stick into that stack at `visibleIndex`.
+/// `group == nil`: imports a whole space (a list of groups) as a new window.
+/// Otherwise: imports exactly one group into that space at `visibleIndex`.
 struct ImportView: View {
     @ObservedObject var store: AppStore
     let group: UUID?
@@ -163,13 +187,13 @@ struct ImportView: View {
         _text = State(initialValue: initialText)
     }
 
-    private var isStack: Bool { group == nil }
+    private var isSpace: Bool { group == nil }
     private var sectionCount: Int { parsed.reduce(0) { $0 + $1.blocks.count } }
 
     @Environment(\.colorScheme) private var scheme
 
     var body: some View {
-        // Bare surface like New Stack: no title row, no close button (Esc or Cancel closes).
+        // Bare surface like New Space: no title row, no close button (Esc or Cancel closes).
         VStack(alignment: .leading, spacing: 10) {
             AppCodeBox { JSONEditor(text: $text) }
                 .frame(height: 200)
@@ -203,7 +227,7 @@ struct ImportView: View {
     }
 
     private var summary: String {
-        "\(parsed.count) stick\(parsed.count == 1 ? "" : "s") · \(sectionCount) line\(sectionCount == 1 ? "" : "s")"
+        "\(parsed.count) group\(parsed.count == 1 ? "" : "s") · \(sectionCount) entit\(sectionCount == 1 ? "y" : "ies")"
     }
 
     private func reparse(_ new: String) {
@@ -213,8 +237,8 @@ struct ImportView: View {
         }
         do {
             let sticks = try Interchange.parse(new)
-            if !isStack && sticks.count != 1 {
-                throw Interchange.ImportError(message: "This JSON has \(sticks.count) sticks. A stick import takes exactly one; use Import in the menu bar for a whole stack.")
+            if !isSpace && sticks.count != 1 {
+                throw Interchange.ImportError(message: "This JSON has \(sticks.count) groups. A group import takes exactly one; use Import in the menu bar for a whole space.")
             }
             parsed = sticks
             error = nil
@@ -225,7 +249,7 @@ struct ImportView: View {
     }
 
     private func doImport() {
-        store.insert(parsed, group: group, atVisible: visibleIndex)
+        store.insert(parsed, group: group, atVisible: visibleIndex, spaceName: Interchange.spaceName(in: text) ?? "Imported Space")
         close()
     }
 }
@@ -242,53 +266,59 @@ struct AboutView: View {
 
     private let topics: [Topic] = [
         Topic(title: "Getting Started", symbol: "questionmark.circle", bullets: [
-            "A line holds one piece of text. Lines form a stick, and sticks form a stack: one window.",
-            "Double-click a stick's title to expand or collapse it. Several can stay open.",
-            "Double-click a line to edit it. Esc or ⌘↩ finishes; text is saved as you type.",
-            "Drag the dotted grip to reorder sticks; drag a line up or down to reorder lines within its stick.",
-            "Drag a stick's title row to move the whole window (not while it is pinned).",
-            "Each line's copy button copies its exact text, nothing else.",
-            "A line is a link only when the whole text is an http/https address.",
+            "An entity holds one piece of text. Entities form a group, and groups form a space: one window.",
+            "The space header is always on top. Double-click it to fold the groups away or bring them back.",
+            "Double-click a group's title to expand or collapse it. Several can stay open.",
+            "Double-click an entity to edit it. Esc or ⌘↩ finishes; text is saved as you type.",
+            "Drag the dotted grip to reorder groups; drag an entity up or down to reorder entities within its group.",
+            "Drag the space header or a group's title row to move the whole window (not while it is pinned).",
+            "Each entity's copy button copies its exact text, nothing else.",
+            "An entity is a link only when the whole text is an http/https address.",
+        ]),
+        Topic(title: "Titles & Tags", symbol: "tag", bullets: [
+            "A title is shown instead of a long text or link. Copy and Open still use the real value; hover to see it.",
+            "Tags are short labels such as prod, stg or dev, shown as coloured chips. Separate several with commas.",
+            "Tags you already use are offered as one-click suggestions while editing.",
         ]),
         Topic(title: "Sensitive Content", symbol: "eye", bullets: [
-            "Mask Content shows •••••••• instead of the text, whatever its length.",
-            "The eye reveals it temporarily. It hides again when you press the eye, the window loses focus, or the stick collapses.",
+            "Mask Content shows •••••••• instead of the text, whatever its length. A title, if set, stays visible.",
+            "The eye reveals it temporarily. It hides again when you press the eye, the window loses focus, or the group collapses.",
             "Copy works without revealing.",
             "Masking only hides the text on screen. It is not encryption: the text is saved in plain form in Stickspace's data file.",
             "After you copy it, the text sits on the system clipboard where other apps can read it.",
-            "Masked lines are skipped by Open All and by Export unless you opt in.",
+            "Masked entities are skipped by Open All and by Export unless you opt in.",
         ]),
         Topic(title: "Pin", symbol: "pin", bullets: [
-            "One pin per stack, on its top stick. A pinned window cannot be moved; it does not stay above other windows.",
-            "If you reorder or hide the top stick, the pin moves to the new top stick.",
+            "The pin sits in the space header. A pinned window cannot be moved; it does not stay above other windows.",
             "Pinning never takes keyboard focus.",
         ]),
         Topic(title: "Context Menus", symbol: "contextualmenu.and.cursorarrow", bullets: [
-            "Right-click a stick for Rename, Hide, Lines…, Add Stick Above/Below, Show Hidden Sticks…, zoom, Import Stick, Export and Delete.",
-            "Right-click a line for Edit, Copy, Type, Move Up/Down, Hide Line, Mask Content and Delete Line.",
+            "Right-click the space header for Rename, Add Group, Show Hidden Groups, zoom, Import Group, Export Space, Hide and Delete.",
+            "Right-click a group for Rename, Hide, Entities…, Add Group Above/Below, Show Hidden Groups…, Import Group, Export Group and Delete.",
+            "Right-click an entity for Edit, Copy, Type, Move Up/Down, Hide Entity, Mask Content and Delete Entity.",
             "Link buttons: click opens in the browser; ⌘-click opens in the background so Stickspace stays active.",
-            "The arrow in a stick's title row opens all of its visible, non-sensitive links, once each.",
+            "The arrow in a group's title row opens all of its visible, non-sensitive links, once each.",
         ]),
         Topic(title: "Menu Bar", symbol: "menubar.rectangle", bullets: [
-            "New Stack creates a new window. Add sticks to it from its context menu.",
-            "Each stack is listed with a check mark: click it to hide or show that window.",
-            "Import adds a whole stack (a list of sticks) pasted as JSON as a new window.",
+            "New Space creates a new window. Add groups to it from the + in its header or its context menu.",
+            "Each space is listed with a check mark: click it to hide or show that window.",
+            "Import adds a whole space (a list of groups) pasted as JSON as a new window.",
             "The three icons switch between system, light and dark appearance for the whole app.",
             "Restart (⇧⌘R) saves and relaunches. Quit (⌘Q) saves and exits.",
         ]),
         Topic(title: "Delete & Undo", symbol: "trash", bullets: [
-            "Deleting a stick or line happens immediately, with no confirmation.",
+            "Deleting a space, group or entity happens immediately, with no confirmation.",
             "Press Undo in the notice or ⌘Z to bring it back.",
         ]),
-        Topic(title: "Zoom per Stack", symbol: "magnifyingglass", bullets: [
-            "⌘+ (or ⌘=) zooms in, ⌘− zooms out, ⌘0 resets. The range is 60%–200%.",
-            "Zoom applies only to the stack you last used and is remembered per stack.",
+        Topic(title: "Zoom per Space", symbol: "magnifyingglass", bullets: [
+            "⌘+ (or ⌘=) zooms in, ⌘− zooms out, ⌘0 resets. The range is 60%–200%. The space header menu has the same items.",
+            "Zoom applies only to the space you last used and is remembered per space.",
         ]),
         Topic(title: "Import & Export (JSON)", symbol: "doc", bullets: [
-            "Paste JSON to import. Import never overwrites existing sticks.",
-            "Menu bar → Import takes a stack. A stick's menu → Import Stick takes exactly one stick.",
-            "Export one stick or its whole stack: copy the JSON or save it to a file.",
-            "Sensitive lines are excluded unless you tick the option, which writes them as plain text.",
+            "Paste JSON to import. Import never overwrites existing groups.",
+            "Menu bar → Import takes a space. A group's menu → Import Group takes exactly one group.",
+            "Export one group or its whole space: copy the JSON.",
+            "Sensitive entities are excluded unless you tick the option, which writes them as plain text.",
         ]),
     ]
 

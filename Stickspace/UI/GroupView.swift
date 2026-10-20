@@ -2,10 +2,13 @@ import SwiftUI
 
 /// Entry points into the helper windows, injected so views never reach for global state.
 struct WindowActions {
-    var newStick: (_ group: UUID?, _ visibleIndex: Int?) -> Void = { _, _ in }
+    /// "stick" is a group in the UI; "group" is a space.
+    var newStick: (_ space: UUID?, _ visibleIndex: Int?) -> Void = { _, _ in }
     var rename: (_ stick: UUID) -> Void = { _ in }
-    var importInto: (_ group: UUID, _ visibleIndex: Int?) -> Void = { _, _ in }
+    var renameSpace: (_ space: UUID) -> Void = { _ in }
+    var importInto: (_ space: UUID, _ visibleIndex: Int?) -> Void = { _, _ in }
     var export: (_ stick: UUID) -> Void = { _ in }
+    var exportSpace: (_ space: UUID) -> Void = { _ in }
 }
 
 private struct FramesKey: PreferenceKey {
@@ -53,34 +56,44 @@ struct GroupView: View {
         let byID = Dictionary(uniqueKeysWithValues: sticks.map { ($0.id, $0) })
         let order = drag?.order ?? sticks.map(\.id)
 
-        let content = ZStack(alignment: .topLeading) {
-            VStack(spacing: Metrics.gap * z) {
-                ForEach(order, id: \.self) { id in
-                    if let stick = byID[id] {
-                        let lifted = drag?.id == id
-                        StickView(
-                            store: store, stick: stick, groupID: g.id,
-                            visibleIndex: sticks.firstIndex { $0.id == id } ?? 0,
-                            isPinHolder: id == sticks.first?.id, isPinned: g.isPinned, actions: actions,
-                            onGripChanged: { gripChanged(id, $0, sticks: sticks) },
-                            onGripEnded: { _ in gripEnded() }
-                        )
-                        .background(GeometryReader { proxy in
-                            Color.clear.preference(key: FramesKey.self, value: [id: proxy.frame(in: .named("group"))])
-                        })
-                        .scaleEffect(lifted ? 1.015 : 1)
-                        .shadow(color: .black.opacity(lifted ? 0.30 : 0), radius: 10 * z, y: 4 * z)
-                        .offset(y: dragOffset(id, z: z))
-                        .zIndex(lifted ? 1 : 0)
-                    }
+        let list = VStack(spacing: Metrics.gap * z) {
+            ForEach(order, id: \.self) { id in
+                if let stick = byID[id] {
+                    let lifted = drag?.id == id
+                    StickView(
+                        store: store, stick: stick, groupID: g.id,
+                        visibleIndex: sticks.firstIndex { $0.id == id } ?? 0,
+                        isPinned: g.isPinned, actions: actions,
+                        onGripChanged: { gripChanged(id, $0, sticks: sticks) },
+                        onGripEnded: { _ in gripEnded() }
+                    )
+                    .background(GeometryReader { proxy in
+                        Color.clear.preference(key: FramesKey.self, value: [id: proxy.frame(in: .named("group"))])
+                    })
+                    .scaleEffect(lifted ? 1.015 : 1)
+                    .shadow(color: .black.opacity(lifted ? 0.30 : 0), radius: 10 * z, y: 4 * z)
+                    .offset(y: dragOffset(id, z: z))
+                    .zIndex(lifted ? 1 : 0)
                 }
             }
-            .padding(.vertical, Metrics.edge * z)
-            .animation(anim, value: order)
         }
-        .frame(width: Metrics.width * z)
+        .padding(.vertical, Metrics.edge * z)
+        .animation(anim, value: order)
         .coordinateSpace(name: "group")
         .onPreferenceChange(FramesKey.self) { frames = $0 }
+
+        let content = VStack(spacing: Metrics.gap * z) {
+            SpaceHeader(store: store, space: g, actions: actions, onToggle: { toggleSpace(g) })
+                .zIndex(1)
+            if !g.isCollapsed {
+                if sticks.isEmpty {
+                    AddGroupRow(actions: actions, spaceID: g.id).transition(.opacity)
+                } else {
+                    list.transition(.opacity)
+                }
+            }
+        }
+        .frame(width: Metrics.width * z)
         .environment(\.zoom, z)
         .fixedSize(horizontal: false, vertical: true)
         .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { onHeight($0) }
@@ -92,6 +105,10 @@ struct GroupView: View {
             Spacer(minLength: 0)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+    }
+
+    private func toggleSpace(_ g: StickGroup) {
+        withAnimation(anim) { store.setCollapsed(!g.isCollapsed, space: g.id) }
     }
 
     // MARK: Reorder
@@ -153,7 +170,6 @@ struct StickView: View {
     let stick: Stick
     let groupID: UUID
     let visibleIndex: Int
-    let isPinHolder: Bool
     let isPinned: Bool
     let actions: WindowActions
     let onGripChanged: (DragGesture.Value) -> Void
@@ -211,7 +227,7 @@ struct StickView: View {
                     .onChanged(onGripChanged).onEnded(onGripEnded))
                 .help("Drag to reorder")
                 .accessibilityLabel("Reorder")
-                .accessibilityHint("Use the Move actions to change this stick's position")
+                .accessibilityHint("Use the Move actions to change this group's position")
 
             HStack(spacing: 6 * z) {
                 Image(systemName: "chevron.right")
@@ -235,27 +251,18 @@ struct StickView: View {
             .accessibilityValue(stick.isExpanded ? "Expanded" : "Collapsed")
             .accessibilityAddTraits(.isButton)
             .accessibilityAction { toggle() }
-            .accessibilityAction(named: "Add line") { store.addBlock(to: stick.id) }
-            .accessibilityAction(named: "Add stick below") { actions.newStick(groupID, visibleIndex + 1) }
+            .accessibilityAction(named: "Add entity") { store.addBlock(to: stick.id) }
+            .accessibilityAction(named: "Add group below") { actions.newStick(groupID, visibleIndex + 1) }
             .accessibilityAction(named: "Move up") { move(by: -1) }
             .accessibilityAction(named: "Move down") { move(by: 1) }
             .accessibilityAction(named: "Show menu") { showMenu() }
 
             if stick.isExpanded && hovering {
-                IconButton(symbol: "plus", label: "Add line", help: "Add line") {
+                IconButton(symbol: "plus", label: "Add entity", help: "Add entity") {
                     NSApp.activate(ignoringOtherApps: true)
                     store.addBlock(to: stick.id)
                 }
                 .transition(.opacity)
-            }
-            if isPinHolder {
-                IconButton(symbol: isPinned ? "pin.fill" : "pin",
-                           label: isPinned ? "Unpin window" : "Pin window",
-                           help: isPinned ? "Unpin: allow moving this window" : "Pin: lock this window in place",
-                           tint: isPinned ? Palette.blue : nil,
-                           rotation: 45) {
-                    store.setPinned(!isPinned, group: groupID)
-                }
             }
             let links = stick.openableLinks
             IconButton(symbol: "arrow.up.right", label: "Open all links",
@@ -280,30 +287,25 @@ struct StickView: View {
     private func showMenu() {
         let menu = NSMenu()
         menu.autoenablesItems = false
-        menu.addAction("Rename") { actions.rename(stick.id) }
-        menu.addAction("Hide") { store.setHidden(true, stick: stick.id) }
-        menu.addAction("Lines…") { showSections = true }
+        menu.addAction("Rename Group") { actions.rename(stick.id) }
+        menu.addAction("Hide Group") { store.setHidden(true, stick: stick.id) }
+        menu.addAction("Entities…") { showSections = true }
         let hiddenLines = stick.blocks.filter(\.isHidden)
-        menu.addSubmenu("Show Hidden Lines…", enabled: !hiddenLines.isEmpty) { sub in
+        menu.addSubmenu("Show Hidden Entities…", enabled: !hiddenLines.isEmpty) { sub in
             for line in hiddenLines { sub.addAction(line.menuTitle) { store.setHidden(false, block: line.id) } }
         }
         menu.addItem(.separator())
-        menu.addAction("Add Stick Above") { actions.newStick(groupID, visibleIndex) }
-        menu.addAction("Add Stick Below") { actions.newStick(groupID, visibleIndex + 1) }
+        menu.addAction("Add Group Above") { actions.newStick(groupID, visibleIndex) }
+        menu.addAction("Add Group Below") { actions.newStick(groupID, visibleIndex + 1) }
         let hidden = store.groupIndex(groupID).map { store.state.groups[$0].sticks.filter(\.isHidden) } ?? []
-        menu.addSubmenu("Show Hidden Sticks…", enabled: !hidden.isEmpty) { sub in
+        menu.addSubmenu("Show Hidden Groups…", enabled: !hidden.isEmpty) { sub in
             for s in hidden { sub.addAction(s.name) { store.setHidden(false, stick: s.id) } }
         }
         menu.addItem(.separator())
-        let zoom = store.zoom(of: groupID)
-        menu.addAction("Zoom In", key: "+", enabled: zoom < Zoom.steps.last!) { store.zoomIn(group: groupID) }
-        menu.addAction("Zoom Out", key: "-", enabled: zoom > Zoom.steps.first!) { store.zoomOut(group: groupID) }
-        menu.addAction("Actual Size", key: "0", enabled: zoom != 1) { store.resetZoom(group: groupID) }
+        menu.addAction("Import Group") { actions.importInto(groupID, visibleIndex + 1) }
+        menu.addAction("Export Group") { actions.export(stick.id) }
         menu.addItem(.separator())
-        menu.addAction("Import") { actions.importInto(groupID, visibleIndex + 1) }
-        menu.addAction("Export") { actions.export(stick.id) }
-        menu.addItem(.separator())
-        menu.addAction("Delete Stick", destructive: true) { store.deleteStick(stick.id) }
+        menu.addAction("Delete Group", destructive: true) { store.deleteStick(stick.id) }
         menu.popUpAtCurrentEvent()
     }
 
@@ -319,7 +321,7 @@ struct StickView: View {
                 } label: {
                     HStack(spacing: 6 * z) {
                         Image(systemName: "doc.text").frame(width: 18 * z)
-                        Text("Add lines…")
+                        Text("Add entities…")
                         Spacer()
                     }
                     .font(.system(size: 13 * z))
@@ -329,7 +331,7 @@ struct StickView: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .accessibilityLabel("Add lines")
+                .accessibilityLabel("Add entities")
             } else {
                 let byID = Dictionary(uniqueKeysWithValues: shownBlocks.map { ($0.id, $0) })
                 let order = blockDrag?.order ?? shownBlocks.map(\.id)
@@ -432,6 +434,145 @@ struct GripDots: View {
     }
 }
 
+// MARK: - Space header
+
+/// The window's own header: always on top, looks like a group row. Name, pin, and a double click that folds the groups away.
+struct SpaceHeader: View {
+    @ObservedObject var store: AppStore
+    let space: StickGroup
+    let actions: WindowActions
+    let onToggle: () -> Void
+
+    @Environment(\.zoom) private var z
+    @Environment(\.colorScheme) private var scheme
+    @State private var hovering = false
+
+    var body: some View {
+        HStack(spacing: 0) {
+            HStack(spacing: 0) {
+                Image(systemName: "chevron.right")
+                    .font(.system(size: 11 * z, weight: .semibold))
+                    .foregroundStyle(Palette.icon(scheme))
+                    .rotationEffect(.degrees(space.isCollapsed ? 0 : 90))
+                    .frame(width: 22 * z)
+                Text(space.name)
+                    .font(.system(size: 13 * z, weight: .semibold))
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                Spacer(minLength: 0)
+            }
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .frame(height: Metrics.headerHeight * z)
+            .contentShape(Rectangle())
+            .overlay(DragClickArea(canDrag: !space.isPinned, doubleClickOnly: true, onClick: onToggle, onContextMenu: showMenu))
+            .help("Double-click to show or hide groups")
+            .accessibilityElement(children: .ignore)
+            .accessibilityLabel(space.name)
+            .accessibilityValue(space.isCollapsed ? "Collapsed" : "Expanded")
+            .accessibilityAddTraits(.isButton)
+            .accessibilityAction { onToggle() }
+            .accessibilityAction(named: "Add group") { actions.newStick(space.id, nil) }
+            .accessibilityAction(named: "Show menu") { showMenu() }
+
+            if hovering && !space.isCollapsed {
+                IconButton(symbol: "plus", label: "Add group", help: "Add group") { actions.newStick(space.id, nil) }
+                    .transition(.opacity)
+            }
+            IconButton(symbol: space.isPinned ? "pin.fill" : "pin",
+                       label: space.isPinned ? "Unpin window" : "Pin window",
+                       help: space.isPinned ? "Unpin: allow moving this window" : "Pin: lock this window in place",
+                       tint: space.isPinned ? Palette.blue : nil,
+                       rotation: 45) {
+                store.setPinned(!space.isPinned, group: space.id)
+            }
+        }
+        .padding(.horizontal, 4 * z)
+        .frame(height: Metrics.headerHeight * z)
+        .foregroundStyle(Palette.text(scheme))
+        .stickSurface()
+        .onHover { hovering = $0 }
+    }
+
+    private func showMenu() {
+        let menu = NSMenu()
+        menu.autoenablesItems = false
+        menu.addAction("Rename Space") { actions.renameSpace(space.id) }
+        menu.addAction("Add Group") { actions.newStick(space.id, nil) }
+        let hidden = space.sticks.filter(\.isHidden)
+        menu.addSubmenu("Show Hidden Groups…", enabled: !hidden.isEmpty) { sub in
+            for s in hidden { sub.addAction(s.name) { store.setHidden(false, stick: s.id) } }
+        }
+        menu.addItem(.separator())
+        menu.addAction("Zoom In", key: "+", enabled: space.zoom < Zoom.steps.last!) { store.zoomIn(group: space.id) }
+        menu.addAction("Zoom Out", key: "-", enabled: space.zoom > Zoom.steps.first!) { store.zoomOut(group: space.id) }
+        menu.addAction("Actual Size", key: "0", enabled: space.zoom != 1) { store.resetZoom(group: space.id) }
+        menu.addItem(.separator())
+        menu.addAction("Import Group") { actions.importInto(space.id, nil) }
+        menu.addAction("Export Space") { actions.exportSpace(space.id) }
+        menu.addItem(.separator())
+        menu.addAction("Hide Space") { store.setGroupHidden(true, group: space.id) }
+        menu.addAction("Delete Space", destructive: true) { store.deleteSpace(space.id) }
+        menu.popUpAtCurrentEvent()
+    }
+}
+
+/// Shown in a space that has no visible group yet.
+struct AddGroupRow: View {
+    let actions: WindowActions
+    let spaceID: UUID
+
+    @Environment(\.zoom) private var z
+    @Environment(\.colorScheme) private var scheme
+
+    var body: some View {
+        Button { actions.newStick(spaceID, nil) } label: {
+            HStack(spacing: 6 * z) {
+                Image(systemName: "plus").frame(width: 18 * z)
+                Text("Add group…")
+                Spacer()
+            }
+            .font(.system(size: 13 * z))
+            .foregroundStyle(.tertiary)
+            .padding(.horizontal, 8 * z)
+            .frame(height: Metrics.headerHeight * z)
+            .contentShape(Rectangle())
+        }
+        .buttonStyle(.plain)
+        .foregroundStyle(Palette.text(scheme))
+        .stickSurface()
+        .accessibilityLabel("Add group")
+    }
+}
+
+/// Small coloured label. prod / stg / dev have fixed colours; any other tag gets a stable one from its name.
+struct TagChip: View {
+    let name: String
+    @Environment(\.zoom) private var z
+
+    static func color(_ name: String) -> Color {
+        switch name.lowercased() {
+        case "prod", "production": return .red
+        case "stg", "stage", "staging": return .orange
+        case "dev", "development": return .green
+        default:
+            let palette: [Color] = [.blue, .teal, .purple, .pink, .indigo, .brown]
+            return palette[name.lowercased().unicodeScalars.reduce(0) { ($0 &* 31 &+ Int($1.value)) & 0xffff } % palette.count]
+        }
+    }
+
+    var body: some View {
+        let color = Self.color(name)
+        Text(verbatim: name)
+            .font(.system(size: 10 * z, weight: .medium))
+            .foregroundStyle(color)
+            .lineLimit(1)
+            .padding(.horizontal, 5 * z)
+            .frame(height: 15 * z)
+            .background(RoundedRectangle(cornerRadius: 4 * z).fill(color.opacity(0.16)))
+            .fixedSize()
+    }
+}
+
 // MARK: - Block row
 
 struct BlockRow: View {
@@ -443,6 +584,7 @@ struct BlockRow: View {
     @Environment(\.zoom) private var z
     @Environment(\.colorScheme) private var scheme
     @State private var copied = false
+    @State private var tagsText = ""
 
     private var isEditing: Bool { store.editingBlock == block.id }
     private var revealed: Bool { store.revealed.contains(block.id) }
@@ -477,7 +619,7 @@ struct BlockRow: View {
                 .gesture(DragGesture(minimumDistance: 3, coordinateSpace: .named("group"))
                     .onChanged(onGripChanged).onEnded(onGripEnded))
                 .help("Drag to reorder")
-                .accessibilityLabel("Reorder line"))
+                .accessibilityLabel("Reorder entity"))
         }
         return AnyView(image.accessibilityHidden(true))
     }
@@ -492,6 +634,11 @@ struct BlockRow: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .contentShape(Rectangle())
                 .onTapGesture(count: 2) { beginEdit() }
+                .help(block.hasTitle && !block.isMasked ? block.text : "")
+            if !block.tags.isEmpty {
+                HStack(spacing: 3 * z) { ForEach(block.tags, id: \.self) { TagChip(name: $0) } }
+                    .padding(.top, 4 * z)
+            }
             actions
         }
         .contentShape(Rectangle())
@@ -501,10 +648,15 @@ struct BlockRow: View {
     }
 
     @ViewBuilder private var textView: some View {
-        if showsMask {
+        if showsMask && block.hasTitle {
+            Text(verbatim: block.title).font(.system(size: 13 * z))
+        } else if showsMask {
             Text(verbatim: "••••••••")
                 .font(.system(size: 13 * z, design: .monospaced))
                 .accessibilityLabel("Sensitive content, hidden")
+        } else if block.hasTitle {
+            Text(verbatim: block.title).font(.system(size: 13 * z))
+                .foregroundStyle(block.linkURL != nil ? Palette.link(scheme) : Palette.text(scheme))
         } else if block.text.isEmpty {
             Text("Empty").font(.system(size: 13 * z)).foregroundStyle(.tertiary)
         } else {
@@ -578,10 +730,10 @@ struct BlockRow: View {
         menu.addAction("Move Up", enabled: canMove(-1)) { move(-1) }
         menu.addAction("Move Down", enabled: canMove(1)) { move(1) }
         menu.addItem(.separator())
-        menu.addAction("Hide Line") { store.setHidden(true, block: block.id) }
+        menu.addAction("Hide Entity") { store.setHidden(true, block: block.id) }
         menu.addAction("Mask Content", checked: block.isMasked) { store.setMasked(!block.isMasked, block: block.id) }
         menu.addItem(.separator())
-        menu.addAction("Delete Line", destructive: true) { store.deleteBlock(block.id) }
+        menu.addAction("Delete Entity", destructive: true) { store.deleteBlock(block.id) }
         return menu
     }
 
@@ -599,6 +751,11 @@ struct BlockRow: View {
                     .padding(.vertical, 4 * z)
                     .background(RoundedRectangle(cornerRadius: 5 * z).fill(scheme == .dark ? Color.black.opacity(0.25) : Color.white.opacity(0.9)))
                     .overlay(RoundedRectangle(cornerRadius: 5 * z).strokeBorder(Palette.blue, lineWidth: 1.5))
+                editorField("Title (shown instead of the text)",
+                            text: Binding(get: { store.block(block.id)?.title ?? "" }, set: { store.setTitle($0, block: block.id) }))
+                editorField("Tags: prod, stg, dev…", text: $tagsText)
+                    .onChange(of: tagsText) { _, new in store.setTags(Tags.parse(new), block: block.id) }
+                tagSuggestions
                 HStack(alignment: .center, spacing: 6 * z) {
                     Button { store.deleteBlock(block.id) } label: {
                         Image(systemName: "trash")
@@ -609,8 +766,8 @@ struct BlockRow: View {
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                    .help("Delete this line (undo with ⌘Z)")
-                    .accessibilityLabel("Delete line")
+                    .help("Delete this entity (undo with ⌘Z)")
+                    .accessibilityLabel("Delete entity")
                     typePicker
                     Spacer(minLength: 0)
                     Button { store.editingBlock = nil } label: {
@@ -628,6 +785,38 @@ struct BlockRow: View {
                 }
             }
             .padding(.bottom, 2 * z)
+        }
+        .onAppear { tagsText = block.tags.joined(separator: ", ") }
+    }
+
+    private func editorField(_ placeholder: String, text: Binding<String>) -> some View {
+        TextField(placeholder, text: text)
+            .textFieldStyle(.plain)
+            .font(.system(size: 12 * z))
+            .padding(.horizontal, 6 * z)
+            .frame(height: 22 * z)
+            .background(RoundedRectangle(cornerRadius: 5 * z).fill(scheme == .dark ? Color.black.opacity(0.25) : Color.white.opacity(0.9)))
+            .overlay(RoundedRectangle(cornerRadius: 5 * z).strokeBorder(Palette.separator(scheme).opacity(2), lineWidth: 0.5))
+    }
+
+    /// Tags already in use (plus prod / stg / dev) that this entity does not have yet: one click adds them.
+    @ViewBuilder private var tagSuggestions: some View {
+        let have = Set(block.tags.map { $0.lowercased() })
+        let options = Array((store.knownTags + ["prod", "stg", "dev"]).reduce(into: [String]()) { list, tag in
+            if !list.contains(where: { $0.lowercased() == tag.lowercased() }) { list.append(tag) }
+        }.filter { !have.contains($0.lowercased()) }.prefix(6))
+        if !options.isEmpty {
+            HStack(spacing: 4 * z) {
+                ForEach(options, id: \.self) { tag in
+                    Button {
+                        let new = Tags.clean(block.tags + [tag])
+                        store.setTags(new, block: block.id)
+                        tagsText = new.joined(separator: ", ")
+                    } label: { TagChip(name: tag) }
+                        .buttonStyle(.plain)
+                        .accessibilityLabel("Add tag \(tag)")
+                }
+            }
         }
     }
 
@@ -692,7 +881,7 @@ struct ContextMenuArea: NSViewRepresentable {
     }
 }
 
-// MARK: - Sections popover
+// MARK: - Entities popover
 
 struct SectionsPopover: View {
     @ObservedObject var store: AppStore
@@ -702,7 +891,7 @@ struct SectionsPopover: View {
         let blocks = store.stick(stickID)?.blocks ?? []
         VStack(alignment: .leading, spacing: 0) {
             if blocks.isEmpty {
-                Text("No lines yet.").foregroundStyle(.secondary).padding(12)
+                Text("No entities yet.").foregroundStyle(.secondary).padding(12)
             }
             ForEach(blocks) { b in
                 HStack(spacing: 6) {
@@ -713,28 +902,28 @@ struct SectionsPopover: View {
                     .accessibilityLabel(b.menuTitle)
                     Spacer(minLength: 8)
                     Menu {
-                        Button(b.isHidden ? "Show Line" : "Hide Line") { store.setHidden(!b.isHidden, block: b.id) }
-                        Button("Delete Line", role: .destructive) { store.deleteBlock(b.id) }
+                        Button(b.isHidden ? "Show Entity" : "Hide Entity") { store.setHidden(!b.isHidden, block: b.id) }
+                        Button("Delete Entity", role: .destructive) { store.deleteBlock(b.id) }
                     } label: {
                         Image(systemName: "ellipsis")
                     }
                     .menuStyle(.borderlessButton)
                     .menuIndicator(.hidden)
                     .fixedSize()
-                    .accessibilityLabel("Line actions")
+                    .accessibilityLabel("Entity actions")
                 }
                 .padding(.horizontal, 12)
                 .padding(.vertical, 5)
             }
             Divider().padding(.top, 4)
             HStack {
-                Text("Hidden lines can also be deleted from here.")
+                Text("Hidden entities can also be deleted from here.")
                     .font(.caption).foregroundStyle(.secondary)
                 Spacer(minLength: 6)
                 Button { NSApp.activate(ignoringOtherApps: true); store.addBlock(to: stickID) } label: { Image(systemName: "plus") }
                     .buttonStyle(.borderless)
-                    .help("Add line")
-                    .accessibilityLabel("Add line")
+                    .help("Add entity")
+                    .accessibilityLabel("Add entity")
             }
             .padding(.horizontal, 12)
             .padding(.vertical, 8)

@@ -11,13 +11,16 @@ enum ThemeChoice: String, CaseIterable {
     case system, light, dark
 }
 
-/// A section of a stick ("block"). Kept free of UI types so it can be tested in isolation.
+/// An entity ("block" in code): one piece of text. Kept free of UI types so it can be tested in isolation.
 struct Block: Identifiable, Equatable {
     var id = UUID()
     var type: BlockType = .auto
     var text = ""
     var isHidden = false
     var isMasked = false
+    /// Shown instead of the text (or link) when not empty.
+    var title = ""
+    var tags: [String] = []
 }
 
 enum BlockKind: Equatable {
@@ -27,10 +30,13 @@ enum BlockKind: Equatable {
 extension Block {
     /// Short label for menus and lists. Never reveals masked text.
     var menuTitle: String {
-        if isMasked { return "Sensitive line" }
-        let line = text.split(whereSeparator: \.isNewline).first.map(String.init)?.trimmingCharacters(in: .whitespaces) ?? ""
-        return line.isEmpty ? "Empty line" : String(line.prefix(40))
+        if isMasked { return "Sensitive entity" }
+        let shown = title.trimmingCharacters(in: .whitespaces)
+        let line = shown.isEmpty ? (text.split(whereSeparator: \.isNewline).first.map(String.init)?.trimmingCharacters(in: .whitespaces) ?? "") : shown
+        return line.isEmpty ? "Empty entity" : String(line.prefix(40))
     }
+
+    var hasTitle: Bool { !title.trimmingCharacters(in: .whitespaces).isEmpty }
 
     /// Auto and Link blocks are links only when the *whole* text is a valid http(s) address.
     var kind: BlockKind {
@@ -62,6 +68,7 @@ enum LinkCheck {
     }
 }
 
+/// A group ("stick" in code): a named list of entities.
 struct Stick: Identifiable, Equatable {
     var id = UUID()
     var name: String
@@ -81,22 +88,23 @@ struct Stick: Identifiable, Equatable {
     }
 }
 
+/// A space ("StickGroup" in code): one window holding groups.
 struct StickGroup: Identifiable, Equatable {
     var id = UUID()
     var sticks: [Stick] = []
     var isPinned = false
-    /// Hides the whole window; every stick keeps its own state.
+    /// Hides the whole window; every group keeps its own state.
     var isHidden = false
     var zoom: Double = 1.0
     var originX: Double?
     var topY: Double?
+    var name = "Space"
+    /// Collapsed to its header row only.
+    var isCollapsed = false
 
     var visibleSticks: [Stick] { sticks.filter { !$0.isHidden } }
-    /// A window exists only for a shown group that has at least one shown stick.
-    var showsWindow: Bool { !isHidden && !visibleSticks.isEmpty }
-    var title: String { sticks.map(\.name).joined(separator: " · ") }
-    /// The single pin lives on the top visible stick.
-    var pinHolderID: UUID? { visibleSticks.first?.id }
+    /// The header keeps an empty space reachable, so a window exists for every shown space.
+    var showsWindow: Bool { !isHidden }
 }
 
 struct AppState: Equatable {
@@ -126,5 +134,18 @@ enum ScreenFit {
         moved.origin.x = min(max(frame.origin.x, first.minX + 8), max(first.minX + 8, first.maxX - frame.width - 8))
         moved.origin.y = min(max(frame.origin.y, first.minY + 8), max(first.minY + 8, first.maxY - frame.height - 8))
         return moved
+    }
+}
+
+enum Tags {
+    /// Trimmed, no empties, no case-insensitive duplicates, order kept.
+    static func clean(_ tags: [String]) -> [String] {
+        var seen = Set<String>()
+        return tags.map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+            .filter { !$0.isEmpty && seen.insert($0.lowercased()).inserted }
+    }
+
+    static func parse(_ text: String) -> [String] {
+        clean(text.split(whereSeparator: { $0 == "," || $0 == "\n" }).map(String.init))
     }
 }

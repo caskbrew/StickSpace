@@ -90,8 +90,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         WindowActions(
             newStick: { [unowned self] group, index in helpers.showNewStick(group: group ?? store.commandGroupID, index: index) },
             rename: { [unowned self] in helpers.showRename(stick: $0) },
+            renameSpace: { [unowned self] in helpers.showRename(space: $0) },
             importInto: { [unowned self] group, index in helpers.showImport(group: group, index: index) },
-            export: { [unowned self] in helpers.showExport(stick: $0) }
+            export: { [unowned self] in helpers.showExport(stick: $0) },
+            exportSpace: { [unowned self] in helpers.showExport(space: $0) }
         )
     }
 
@@ -130,16 +132,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     // MARK: Commands
 
-    /// A new stack (window); sticks are added from a stack's context menu.
-    @objc func addStack() { helpers.showNewStick(group: nil, index: nil) }
-    @objc func importStack() { helpers.showImport(group: nil, index: nil) }
+    /// A new space (window); groups are added from its header.
+    @objc func addSpace() { helpers.showNewStick(group: nil, index: nil) }
+    @objc func importSpace() { helpers.showImport(group: nil, index: nil) }
     @objc func showAbout() { helpers.showAbout() }
     @objc func zoomIn() { store.commandGroupID.map { store.zoomIn(group: $0) } }
     @objc func zoomOut() { store.commandGroupID.map { store.zoomOut(group: $0) } }
     @objc func zoomReset() { store.commandGroupID.map { store.resetZoom(group: $0) } }
 
     @objc func performUndo() {
-        // While typing in a section, ⌘Z is the text view's; otherwise it undoes the last delete.
+        // While typing in an entity, ⌘Z is the text view's; otherwise it undoes the last delete.
         if let tv = NSApp.keyWindow?.firstResponder as? NSTextView, tv.isEditable, tv.undoManager?.canUndo == true {
             tv.undoManager?.undo()
         } else {
@@ -176,8 +178,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         main.addItem(submenu: app)
 
         let file = NSMenu(title: "File")
-        file.addAction("New Stack", key: "n") { [unowned self] in addStack() }
-        file.addAction("Import", key: "i") { [unowned self] in importStack() }
+        file.addAction("New Space", key: "n") { [unowned self] in addSpace() }
+        file.addAction("Import", key: "i") { [unowned self] in importSpace() }
         file.addItem(.separator())
         file.addItem(withTitle: "Close Window", action: #selector(NSWindow.performClose(_:)), keyEquivalent: "w")
         main.addItem(submenu: file)
@@ -225,13 +227,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func menuNeedsUpdate(_ menu: NSMenu) {
         guard menu === statusItem.menu else { return }
         menu.removeAllItems()
-        menu.addAction("New Stack", key: "n") { [unowned self] in addStack() }
-        menu.addAction("Import", key: "i") { [unowned self] in importStack() }
+        menu.addAction("New Space", key: "n") { [unowned self] in addSpace() }
+        menu.addAction("Import", key: "i") { [unowned self] in importSpace() }
         menu.addItem(.separator())
 
-        // One entry per stack (window): check = shown.
+        // One entry per space (window): check = shown.
         for group in store.state.groups {
-            let title = group.title.isEmpty ? "Empty stack" : group.title
+            let title = group.name
             menu.addAction(title.count > 42 ? String(title.prefix(41)) + "…" : title, checked: !group.isHidden) { [unowned self] in
                 store.setGroupHidden(!group.isHidden, group: group.id)
             }

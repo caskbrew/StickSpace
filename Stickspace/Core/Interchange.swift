@@ -2,9 +2,10 @@ import Foundation
 
 /// Versioned JSON exchange format. JSON only.
 ///
-/// Single stick:  {"version":1,"name":"…","sections":[{"type":"text","text":"…"}]}
-/// Several:       {"version":1,"sticks":[ … ]}
-/// Link sections are written with "url"; both "url" and "text" are accepted on import.
+/// Single group:  {"version":1,"name":"…","sections":[{"type":"text","text":"…","title":"…","tags":["prod"]}]}
+/// Whole space:   {"version":1,"name":"…","sticks":[ … ]}
+/// (Keys keep their original names: a group is "sticks", an entity is "sections".)
+/// Link entities are written with "url"; both "url" and "text" are accepted on import.
 enum Interchange {
     static let version = 1
 
@@ -15,13 +16,14 @@ enum Interchange {
 
     // MARK: Export
 
-    static func export(_ sticks: [Stick], asSingle: Bool, includeSensitive: Bool) -> String {
+    static func export(_ sticks: [Stick], asSingle: Bool, includeSensitive: Bool, spaceName: String? = nil) -> String {
         let items = sticks.map { stickObject($0, includeSensitive: includeSensitive) }
         var root: [String: Any] = ["version": version]
         if asSingle, items.count == 1, let one = items.first {
             root.merge(one) { a, _ in a }
         } else {
             root["sticks"] = items
+            if let spaceName, !spaceName.isEmpty { root["name"] = spaceName }
         }
         let data = (try? JSONSerialization.data(withJSONObject: root, options: [.prettyPrinted, .sortedKeys, .withoutEscapingSlashes])) ?? Data("{}".utf8)
         return String(decoding: data, as: UTF8.self)
@@ -32,6 +34,8 @@ enum Interchange {
             if b.isMasked && !includeSensitive { return nil }
             var o: [String: Any] = ["type": b.type.rawValue]
             o[b.type == .link ? "url" : "text"] = b.text
+            if b.hasTitle { o["title"] = b.title }
+            if !b.tags.isEmpty { o["tags"] = b.tags }
             if b.isHidden { o["hidden"] = true }
             if b.isMasked { o["masked"] = true }
             return o
@@ -66,14 +70,20 @@ enum Interchange {
             } else if root["name"] != nil {
                 stickObjects = [root]
             } else {
-                throw ImportError(message: "Expected a \"sticks\" array or a stick with a \"name\".")
+                throw ImportError(message: "Expected a \"sticks\" array or a group with a \"name\".")
             }
         } else {
             throw ImportError(message: "Expected a JSON object.")
         }
-        guard !stickObjects.isEmpty else { throw ImportError(message: "No sticks found.") }
+        guard !stickObjects.isEmpty else { throw ImportError(message: "No groups found.") }
 
         return try stickObjects.enumerated().map { try parseStick($1, index: $0 + 1) }
+    }
+
+    /// The "name" of a whole-space document, if there is one.
+    static func spaceName(in text: String) -> String? {
+        guard let root = (try? JSONSerialization.jsonObject(with: Data(text.utf8))) as? [String: Any], root["sticks"] != nil else { return nil }
+        return (root["name"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines).nilIfEmpty
     }
 
     private static func checkVersion(_ value: Any?) throws {
@@ -84,16 +94,16 @@ enum Interchange {
     }
 
     private static func parseStick(_ any: Any, index: Int) throws -> Stick {
-        guard let o = any as? [String: Any] else { throw ImportError(message: "Stick #\(index) must be an object.") }
+        guard let o = any as? [String: Any] else { throw ImportError(message: "Group #\(index) must be an object.") }
         guard let name = (o["name"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines), !name.isEmpty else {
-            throw ImportError(message: "Stick #\(index): \"name\" must be a non-empty string.")
+            throw ImportError(message: "Group #\(index): \"name\" must be a non-empty string.")
         }
         var stick = Stick(name: name)
         guard let rawSections = o["sections"] else { return stick }
-        guard let sections = rawSections as? [Any] else { throw ImportError(message: "Stick \"\(name)\": \"sections\" must be an array.") }
+        guard let sections = rawSections as? [Any] else { throw ImportError(message: "Group \"\(name)\": \"sections\" must be an array.") }
 
         for (i, item) in sections.enumerated() {
-            let where_ = "Stick \"\(name)\", section #\(i + 1)"
+            let where_ = "Group \"\(name)\", entity #\(i + 1)"
             guard let s = item as? [String: Any] else { throw ImportError(message: "\(where_): must be an object.") }
             var type = BlockType.auto
             if let raw = s["type"] {
@@ -105,6 +115,14 @@ enum Interchange {
             let value = (s["text"] ?? s["url"])
             guard let text = value as? String else { throw ImportError(message: "\(where_): missing \"text\".") }
             var block = Block(type: type, text: text)
+            if let raw = s["title"] {
+                guard let str = raw as? String else { throw ImportError(message: "\(where_): \"title\" must be a string.") }
+                block.title = str
+            }
+            if let raw = s["tags"] {
+                guard let list = raw as? [String] else { throw ImportError(message: "\(where_): \"tags\" must be a list of strings.") }
+                block.tags = Tags.clean(list)
+            }
             for key in ["hidden", "masked"] {
                 guard let raw = s[key] else { continue }
                 guard let flag = raw as? Bool else { throw ImportError(message: "\(where_): \"\(key)\" must be true or false.") }
@@ -114,4 +132,8 @@ enum Interchange {
         }
         return stick
     }
+}
+
+private extension String {
+    var nilIfEmpty: String? { isEmpty ? nil : self }
 }

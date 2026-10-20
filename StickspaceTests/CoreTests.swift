@@ -221,18 +221,43 @@ final class StoreTests: XCTestCase {
         XCTAssertEqual(s.zoom(of: g1), 1.0)
     }
 
-    func testOnePinPerGroupOnTopVisibleStick() {
-        let (s, g1, _) = store()
-        let group = { s.state.groups[s.groupIndex(g1)!] }
-        let a = group().sticks[0].id, b = group().sticks[1].id
-        XCTAssertEqual(group().pinHolderID, a)
-        s.setHidden(true, stick: a)
-        XCTAssertEqual(group().pinHolderID, b)
-        s.setVisibleOrder([b], group: g1)
-        XCTAssertEqual(group().pinHolderID, b)
-        s.setHidden(false, stick: a)
-        s.setVisibleOrder([b, a], group: g1)
-        XCTAssertEqual(group().pinHolderID, b)
+    func testSpaceKeepsItsWindowWhenEmptyAndWhenLastGroupIsDeleted() {
+        let s = AppStore()
+        let id = s.addSpace(name: "Ops")
+        XCTAssertTrue(s.state.groups[0].showsWindow)
+        let stick = s.addStick(name: "G", group: id).stick
+        s.deleteStick(stick)
+        XCTAssertEqual(s.state.groups.count, 1)
+        XCTAssertTrue(s.state.groups[0].sticks.isEmpty)
+        s.undo()
+        XCTAssertEqual(s.state.groups[0].sticks.map(\.name), ["G"])
+        s.deleteSpace(id)
+        XCTAssertTrue(s.state.groups.isEmpty)
+        s.undo()
+        XCTAssertEqual(s.state.groups[0].name, "Ops")
+    }
+
+    func testSpaceNameAndCollapseSurvivePersistence() throws {
+        var g = StickGroup(sticks: [Stick(name: "A")], name: "Prod ops")
+        g.isCollapsed = true
+        let back = try StateCodec.decode(StateCodec.encode(AppState(theme: .system, groups: [g])))
+        XCTAssertEqual(back.groups[0].name, "Prod ops")
+        XCTAssertTrue(back.groups[0].isCollapsed)
+    }
+
+    func testTitleAndTagsRoundTripThroughPersistenceAndJSON() throws {
+        let b = Block(type: .link, text: "https://grafana.example.com/d/abc?var-env=prod", title: "Grafana", tags: ["prod", "Prod", " eu "])
+        XCTAssertEqual(Tags.clean(b.tags), ["prod", "eu"])
+        let stick = Stick(name: "Dash", blocks: [b])
+        let state = try StateCodec.decode(StateCodec.encode(AppState(theme: .system, groups: [StickGroup(sticks: [stick])])))
+        XCTAssertEqual(state.groups[0].sticks[0].blocks[0].title, "Grafana")
+        let json = Interchange.export([stick], asSingle: false, includeSensitive: false, spaceName: "Team")
+        let parsed = try Interchange.parse(json)
+        XCTAssertEqual(parsed[0].blocks[0].title, "Grafana")
+        XCTAssertEqual(parsed[0].blocks[0].tags, ["prod", "eu"])
+        XCTAssertEqual(Interchange.spaceName(in: json), "Team")
+        XCTAssertEqual(b.menuTitle, "Grafana")
+        XCTAssertEqual(Tags.parse("prod, stg,\ndev,,"), ["prod", "stg", "dev"])
     }
 
     func testReorderKeepsHiddenSticksInTheirSlots() {
@@ -258,11 +283,12 @@ final class StoreTests: XCTestCase {
         _ = g1
     }
 
-    func testDeleteLastStickRemovesGroupAndUndoRestoresIt() {
+    func testDeleteLastStickKeepsTheSpaceAndUndoRestoresIt() {
         let (s, _, g2) = store()
         let before = s.state
         s.deleteStick(s.state.groups[1].sticks[0].id)
-        XCTAssertNil(s.groupIndex(g2))
+        XCTAssertTrue(s.state.groups[1].sticks.isEmpty)
+        XCTAssertNotNil(s.groupIndex(g2))
         s.undo()
         XCTAssertEqual(s.state, before)
     }
@@ -336,7 +362,6 @@ final class StoreTests: XCTestCase {
         XCTAssertTrue(g.showsWindow)
         g.isHidden = true
         XCTAssertFalse(g.showsWindow)
-        XCTAssertEqual(g.title, "A · B")
         let s = AppStore()
         s.state.groups = [StickGroup(sticks: [Stick(name: "A")])]
         s.setGroupHidden(true, group: s.state.groups[0].id)

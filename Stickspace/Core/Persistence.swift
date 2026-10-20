@@ -12,6 +12,8 @@ private struct PBlock: Codable {
     var text: String
     var hidden: Bool
     var masked: Bool
+    var title: String?
+    var tags: [String]?
 }
 
 private struct PStick: Codable {
@@ -29,6 +31,8 @@ private struct PGroup: Codable {
     var zoom: Double
     var originX: Double?
     var topY: Double?
+    var name: String?
+    var collapsed: Bool?
     var sticks: [PStick]
 }
 
@@ -42,10 +46,12 @@ enum StateCodec {
     static func encode(_ state: AppState) throws -> Data {
         let groups: [PGroup] = state.groups.map { g in
             PGroup(id: g.id, pinned: g.isPinned, hidden: g.isHidden ? true : nil, zoom: g.zoom, originX: g.originX, topY: g.topY,
+                   name: g.name, collapsed: g.isCollapsed ? true : nil,
                    sticks: g.sticks.map { s in
                 PStick(id: s.id, name: s.name, hidden: s.isHidden, expanded: s.isExpanded,
                        blocks: s.blocks.map { b in
-                    PBlock(id: b.id, type: b.type.rawValue, text: b.text, hidden: b.isHidden, masked: b.isMasked)
+                    PBlock(id: b.id, type: b.type.rawValue, text: b.text, hidden: b.isHidden, masked: b.isMasked,
+                           title: b.title.isEmpty ? nil : b.title, tags: b.tags.isEmpty ? nil : b.tags)
                 })
             })
         }
@@ -63,10 +69,13 @@ enum StateCodec {
             StickGroup(id: g.id, sticks: g.sticks.map { s in
                 Stick(id: s.id, name: s.name, blocks: s.blocks.map { b in
                     Block(id: b.id, type: BlockType(rawValue: b.type) ?? .auto,
-                          text: b.text, isHidden: b.hidden, isMasked: b.masked)
+                          text: b.text, isHidden: b.hidden, isMasked: b.masked,
+                          title: b.title ?? "", tags: b.tags ?? [])
                 }, isHidden: s.hidden, isExpanded: s.expanded)
             }, isPinned: g.pinned, isHidden: g.hidden ?? false, zoom: min(max(g.zoom, Zoom.steps[0]), Zoom.steps[Zoom.steps.count - 1]),
-                       originX: g.originX, topY: g.topY)
+                       originX: g.originX, topY: g.topY,
+                       // Files from before spaces had names: use the old joined title.
+                       name: g.name ?? (g.sticks.isEmpty ? "Space" : g.sticks.map(\.name).joined(separator: " · ")), isCollapsed: g.collapsed ?? false)
         }
         return state
     }

@@ -5,27 +5,28 @@ Sticky snippets for the macOS menu bar: keep texts, links, commands and secrets 
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/readme/stacks-dark.png">
-    <img alt="Stickspace stacks: sticks with lines, a line being edited, a pinned stack" src="docs/readme/stacks-light.png">
+    <img alt="Stickspace spaces: groups with entities, an entity being edited, a pinned space" src="docs/readme/stacks-light.png">
   </picture>
 </p>
 
 ## What it is
 
-- **Line**: one piece of text. **Stick**: a named list of lines. **Stack**: sticks grouped in one window.
+- **Entity**: one piece of text. **Group**: a named list of entities. **Space**: groups in one window, with its own always-visible header.
 - Lives only in the menu bar (no Dock icon). Local-only: no account, no server, no network.
 - Liquid Glass on macOS 26, standard materials on macOS 14 and 15. Light, dark or system theme.
 
 ## Features
 
-- **Copy** any line with one click (exact text, nothing added).
-- **Links**: a line that is a full http(s) address gets an open button. Click opens the browser; **⌘-click opens it in the background** and keeps Stickspace active. The arrow in a stick's title opens all its visible links at once, de-duplicated.
+- **Copy** any entity with one click (exact text, nothing added).
+- **Links**: an entity that is a full http(s) address gets an open button. Click opens the browser; **⌘-click opens it in the background** and keeps Stickspace active. The arrow in a group's title opens all its visible links at once, de-duplicated.
 - **Mask Content**: hide secrets on screen with `••••••••`; reveal temporarily with the eye; copy works without revealing. Masking is visual only, nothing is encrypted.
-- **Pin** a stack to lock its window in place (pinned windows cannot be dragged away).
-- **Double-click** a stick's title to expand or collapse. **Drag** to reorder sticks and lines. Double-click a line to edit it inline (Auto / Text / Link / Code).
-- **Right-click** a stick or a line for everything else: rename, hide/show, add sticks, zoom, import/export, delete (⌘Z undoes).
-- **Zoom per stack**: ⌘+ / ⌘− / ⌘0.
-- **Import / Export** as versioned JSON (paste to import; masked lines are excluded from export unless you opt in).
-- Menu bar: New Stack, Import, show/hide each stack, theme switch, Restart, Quit.
+- **Pin** a space (the pin is in its header) to lock its window in place (pinned windows cannot be dragged away).
+- **Double-click** a group's title to expand or collapse; double-click the space header to fold all groups. **Drag** to reorder groups and entities. Double-click an entity to edit it inline (Auto / Text / Link / Code).
+- **Titles and tags**: an entity can have a title shown instead of a long text or link, and tags such as `prod`, `stg`, `dev` shown as coloured chips.
+- **Right-click** the space header, a group or an entity for everything else: rename, hide/show, add groups, zoom, import/export, delete (⌘Z undoes).
+- **Zoom per space**: ⌘+ / ⌘− / ⌘0.
+- **Import / Export** as versioned JSON (paste to import; masked entities are excluded from export unless you opt in).
+- Menu bar: New Space, Import, show/hide each space, theme switch, Restart, Quit.
 
 <p align="center">
   <picture>
