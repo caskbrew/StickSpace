@@ -478,16 +478,6 @@ struct SpaceHeader: View {
                 IconButton(symbol: "plus", label: "Add group", help: "Add group") { actions.newStick(space.id, nil) }
                     .transition(.opacity)
             }
-            let showing = store.showingHidden.contains(space.id)
-            if showing || store.hiddenCount(space: space.id) > 0 {
-                IconButton(symbol: "eye.slash",
-                           label: showing ? "Stop showing hidden items" : "Show hidden items",
-                           help: showing ? "Hide the hidden groups and entities again"
-                                         : "Show hidden groups and entities (\(store.hiddenCount(space: space.id)))",
-                           tint: showing ? Palette.blue : nil) {
-                    store.setShowingHidden(!showing, space: space.id)
-                }
-            }
             IconButton(symbol: space.isPinned ? "pin.fill" : "pin",
                        label: space.isPinned ? "Unpin window" : "Pin window",
                        help: space.isPinned ? "Unpin: allow moving this window" : "Pin: lock this window in place",
@@ -509,7 +499,7 @@ struct SpaceHeader: View {
         menu.addAction("Rename") { actions.renameSpace(space.id) }
         menu.addAction("Add Group") { actions.newStick(space.id, nil) }
         let showing = store.showingHidden.contains(space.id)
-        menu.addAction("Show Hidden", checked: showing, enabled: showing || store.hiddenCount(space: space.id) > 0) {
+        menu.addAction("Hidden", checked: showing, enabled: showing || store.hiddenCount(space: space.id) > 0) {
             store.setShowingHidden(!showing, space: space.id)
         }
         menu.addItem(.separator())
@@ -728,14 +718,6 @@ struct BlockRow: View {
     private func contextMenu() -> NSMenu {
         let menu = NSMenu()
         menu.autoenablesItems = false
-        menu.addAction("Edit") { beginEdit() }
-        menu.addAction("Copy") { copy() }
-        menu.addSubmenu("Type") { sub in
-            for type in BlockType.allCases {
-                sub.addAction(type.title, checked: block.type == type) { store.setType(type, block: block.id) }
-            }
-        }
-        menu.addItem(.separator())
         menu.addAction("Move Up", enabled: canMove(-1)) { move(-1) }
         menu.addAction("Move Down", enabled: canMove(1)) { move(1) }
         menu.addItem(.separator())

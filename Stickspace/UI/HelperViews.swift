@@ -106,7 +106,7 @@ struct ExportView: View {
     let spaceID: UUID
     let close: () -> Void
 
-    private enum Scope: Hashable { case group, space }
+    private enum Scope: Hashable { case space, group }
 
     @State private var scope: Scope
     @State private var includeSensitive: Bool
@@ -136,13 +136,14 @@ struct ExportView: View {
         // Bare surface (no title row): scope switch, JSON, one option row with the Copy button.
         VStack(alignment: .leading, spacing: 10) {
             if stickID != nil {
-                AppSegmented(options: [(Scope.group, "This Group"), (Scope.space, "This Space")], selection: $scope)
+                AppSegmented(options: [(Scope.space, "Space"), (Scope.group, "Group")], selection: $scope)
             }
             AppCodeBox { JSONEditor(text: .constant(json), editable: false) }
                 .frame(height: 190)
             HStack(alignment: .center) {
                 AppCheckbox(title: "Include masked content", isOn: $includeSensitive)
                 Spacer(minLength: 12)
+                AppButton(title: "Close", action: close).keyboardShortcut(.cancelAction)
                 AppButton(title: copied ? "Copied" : "Copy", style: .primary, action: copy)
                     .keyboardShortcut(.defaultAction)
             }
@@ -282,8 +283,8 @@ struct AboutView: View {
         ]),
         Topic(title: "Hidden Items", symbol: "eye.slash", bullets: [
             "Hide (right-click a group or entity) tucks it away without deleting it; the item shows a check mark while hidden.",
-            "When a space has hidden items, an eye button appears in its header (or use Show Hidden in the header menu). It lists them, dimmed, in place.",
-            "While they are listed, right-click a hidden item and untick Hide to bring it back. Click the header eye again to hide them from view.",
+            "Tick Hidden in the space's header menu to list hidden items, dimmed, in place.",
+            "While they are listed, right-click a hidden item and untick Hide to bring it back. Untick Hidden again to tuck them away.",
             "Hidden items can still be reordered and deleted while listed. Open All and Export skip hidden entities.",
         ]),
         Topic(title: "Sensitive Content", symbol: "eye", bullets: [
@@ -299,9 +300,9 @@ struct AboutView: View {
             "Pinning never takes keyboard focus.",
         ]),
         Topic(title: "Context Menus", symbol: "contextualmenu.and.cursorarrow", bullets: [
-            "Right-click the space header for Rename, Add Group, Show Hidden, zoom, Import Group, Export, Close and Delete.",
+            "Right-click the space header for Rename, Add Group, Hidden, zoom, Import Group, Export, Close and Delete.",
             "Right-click a group for Rename, Hide, Add Group Above/Below, Import Group, Export and Delete.",
-            "Right-click an entity for Edit, Copy, Type, Move Up/Down, Hide, Mask and Delete.",
+            "Right-click an entity for Move Up/Down, Hide, Mask and Delete. Editing is a double-click; copying is its button.",
             "Close hides the whole window; bring it back from the menu bar.",
             "Link buttons: click opens in the browser; ⌘-click opens in the background so Stickspace stays active.",
             "The arrow in a group's title row opens all of its visible, non-sensitive links, once each.",
