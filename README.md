@@ -5,7 +5,7 @@ Sticky snippets for the macOS menu bar: keep texts, links, commands and secrets 
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset="docs/readme/stacks-dark.png">
-    <img alt="Stickspace spaces: groups with entities, an entity being edited, a pinned space" src="docs/readme/stacks-light.png">
+    <img alt="StickSpace spaces: groups with entities, an entity being edited, a pinned space" src="docs/readme/stacks-light.png">
   </picture>
 </p>
 
@@ -18,7 +18,7 @@ Sticky snippets for the macOS menu bar: keep texts, links, commands and secrets 
 ## Features
 
 - **Copy** any entity with one click (exact text, nothing added).
-- **Links**: an entity that is a full http(s) address gets an open button. Click opens the browser; **⌘-click opens it in the background** and keeps Stickspace active. The arrow in a group's title opens all its visible links at once, de-duplicated.
+- **Links**: an entity that is a full http(s) address gets an open button. Click opens the browser; **⌘-click opens it in the background** and keeps StickSpace active. The arrow in a group's title opens all its visible links at once, de-duplicated.
 - **Mask**: hide secrets on screen with `••••••••`; reveal temporarily with the eye; copy works without revealing. Masking is visual only, nothing is encrypted.
 - **Pin** a space (the pin is in its header) to lock its window in place (pinned windows cannot be dragged away).
 - **Double-click** a group's title to expand or collapse; double-click the space header to fold all groups. **Drag** to reorder groups and entities. Double-click an entity to edit it inline (Auto / Text / Link / Code).
@@ -41,9 +41,9 @@ Sticky snippets for the macOS menu bar: keep texts, links, commands and secrets 
 brew install --cask caskbrew/tap/stickspace
 ```
 
-Or download `Stickspace-<version>.zip` from [Releases](https://github.com/caskbrew/StickSpace/releases), unzip and move `Stickspace.app` to `/Applications`.
+Or download `StickSpace-<version>.zip` from [Releases](https://github.com/caskbrew/StickSpace/releases), unzip and move `StickSpace.app` to `/Applications`.
 
-The app is ad-hoc signed and **not notarized**. The Homebrew cask clears the quarantine flag for you; with a manual download, right-click the app and choose Open the first time (or run `xattr -dr com.apple.quarantine /Applications/Stickspace.app`).
+The app is ad-hoc signed and **not notarized**. The Homebrew cask clears the quarantine flag for you; with a manual download, right-click the app and choose Open the first time (or run `xattr -dr com.apple.quarantine /Applications/StickSpace.app`).
 
 Requires macOS 14 or later (universal binary: Apple silicon and Intel).
 
@@ -58,8 +58,10 @@ Needs Xcode and [XcodeGen](https://github.com/yonaskolb/XcodeGen).
 ```
 xcodegen generate
 xcodebuild -project Stickspace.xcodeproj -scheme Stickspace -configuration Release -derivedDataPath build build
-open build/Build/Products/Release/Stickspace.app
+open build/Build/Products/Release/StickSpace.app
 ```
+
+A Debug build is a separate app, **StickSpace Dev** (bundle id `com.sgoroshko.stickspace.dev`, data in `~/Library/Application Support/Stickspace Dev/`), so it can run next to the installed one without touching its data.
 
 Tests: `xcodebuild -project Stickspace.xcodeproj -scheme Stickspace -destination 'platform=macOS' test -derivedDataPath build`
 

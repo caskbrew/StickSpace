@@ -54,7 +54,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // A Timer in .common modes still fires while the menu is tracking; GCD's main queue does not.
         let timer = Timer(timeInterval: 0.8, repeats: false) { [self] _ in
             let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]] ?? []
-            let menu = list.filter { ($0[kCGWindowOwnerName as String] as? String) == "Stickspace" && ($0[kCGWindowLayer as String] as? Int) == 101 }
+            let menu = list.filter { ($0[kCGWindowOwnerName as String] as? String) == ProcessInfo.processInfo.processName && ($0[kCGWindowLayer as String] as? Int) == 101 }
                 .max { ($0[kCGWindowBounds as String] as? [String: CGFloat])?["Height"] ?? 0 < ($1[kCGWindowBounds as String] as? [String: CGFloat])?["Height"] ?? 0 }
             if let id = menu?[kCGWindowNumber as String] as? Int {
                 let p = Process()
@@ -117,7 +117,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         case .unreadable(let moved):
             store.seedIfNeeded()
             let where_ = moved.map { "It was kept as \($0.lastPathComponent) in \($0.deletingLastPathComponent().path)." } ?? "The original file was left untouched."
-            notice = ("Saved data could not be read", "Stickspace started with a fresh set. \(where_)")
+            notice = ("Saved data could not be read", "\(AppInfo.name) started with a fresh set. \(where_)")
         }
         windows.sync()
         saveSubscription = store.$state.dropFirst().sink { persistence.scheduleSave($0) }
@@ -168,13 +168,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         let main = NSMenu()
         main.autoenablesItems = false
 
-        let app = NSMenu(title: "Stickspace")
+        let app = NSMenu(title: AppInfo.name)
         app.addAction("About & Help") { [unowned self] in showAbout() }
         app.addItem(.separator())
-        app.addItem(withTitle: "Hide Stickspace", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
+        app.addItem(withTitle: "Hide \(AppInfo.name)", action: #selector(NSApplication.hide(_:)), keyEquivalent: "h")
         app.addItem(.separator())
         app.addAction("Restart", key: "r", modifiers: [.command, .shift]) { [unowned self] in restart() }
-        app.addItem(withTitle: "Quit Stickspace", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+        app.addItem(withTitle: "Quit \(AppInfo.name)", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
         main.addItem(submenu: app)
 
         let file = NSMenu(title: "File")
@@ -215,8 +215,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             let image = NSImage(named: "MenuBarIcon")
             image?.isTemplate = true
             button.image = image
-            button.setAccessibilityLabel("Stickspace")
-            button.toolTip = "Stickspace"
+            button.setAccessibilityLabel(AppInfo.name)
+            button.toolTip = AppInfo.name
         }
         let menu = NSMenu()
         menu.autoenablesItems = false

@@ -4,7 +4,7 @@ import Combine
 
 // MARK: - Group window
 
-/// Borderless panel for one group. Clicking it activates Stickspace (like Stickies) so shortcuts and typing work;
+/// Borderless panel for one group. Clicking it activates StickSpace (like Stickies) so shortcuts and typing work;
 /// merely pinning or hiding never activates anything.
 final class GroupPanel: NSPanel {
     var keyHandler: ((NSEvent) -> Bool)?
@@ -95,7 +95,7 @@ final class GroupWindowController: NSObject, NSWindowDelegate {
         panel.animationBehavior = .none
         panel.collectionBehavior = [.fullScreenAuxiliary]
         panel.delegate = self
-        panel.title = "Stickspace"
+        panel.title = AppInfo.name
 
         let host = GroupHostingView(rootView: GroupView(
             store: store, groupID: group.id, actions: actions,

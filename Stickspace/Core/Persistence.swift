@@ -98,7 +98,7 @@ struct StateFile {
 
     static var defaultURL: URL {
         let base = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
-        return base.appendingPathComponent("Stickspace", isDirectory: true).appendingPathComponent("state.json")
+        return base.appendingPathComponent(AppInfo.dataFolder, isDirectory: true).appendingPathComponent("state.json")
     }
 
     func load() -> LoadResult {
@@ -167,7 +167,7 @@ final class StatePersistence {
             }
         } catch {
             // Never log content; the error kind alone is enough.
-            NSLog("Stickspace: could not save state (%@)", String(describing: type(of: error)))
+            NSLog("StickSpace: could not save state (%@)", String(describing: type(of: error)))
         }
     }
 }

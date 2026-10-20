@@ -296,7 +296,7 @@ struct AboutView: View {
             "Mask shows •••••••• instead of the text, whatever its length. A title, if set, stays visible.",
             "The eye reveals it temporarily. It hides again when you press the eye, the window loses focus, or the group collapses.",
             "Copy works without revealing.",
-            "Masking only hides the text on screen. It is not encryption: the text is saved in plain form in Stickspace's data file.",
+            "Masking only hides the text on screen. It is not encryption: the text is saved in plain form in StickSpace's data file.",
             "After you copy it, the text sits on the system clipboard where other apps can read it.",
             "Masked entities are skipped by Open All and by Export unless you opt in.",
         ]),
@@ -309,7 +309,7 @@ struct AboutView: View {
             "Right-click a group for Rename, Hide, Add Group Above/Below, Import, Export and Delete.",
             "Right-click an entity for Move Up/Down, Hide, Mask and Delete. Editing is a double-click; copying is its button.",
             "Close hides the whole window; bring it back from the menu bar.",
-            "Link buttons: click opens in the browser; ⌘-click opens in the background so Stickspace stays active.",
+            "Link buttons: click opens in the browser; ⌘-click opens in the background so StickSpace stays active.",
             "The arrow in a group's title row opens all of its visible, non-sensitive links, once each.",
         ]),
         Topic(title: "Menu Bar", symbol: "menubar.rectangle", bullets: [
@@ -347,7 +347,7 @@ struct AboutView: View {
                 HStack(spacing: 12) {
                     Image(nsImage: NSApp.applicationIconImage).resizable().frame(width: 44, height: 44)
                     VStack(alignment: .leading, spacing: 2) {
-                        Text("Stickspace").font(.system(size: 16, weight: .semibold))
+                        Text(AppInfo.name).font(.system(size: 16, weight: .semibold))
                         Text("Reusable text, kept close.").font(.system(size: 12)).foregroundStyle(.secondary)
                     }
                     Spacer()

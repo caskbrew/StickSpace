@@ -20,21 +20,30 @@ targets:
     info:
       path: Stickspace/Info.plist
       properties:
-        CFBundleName: Stickspace
-        CFBundleDisplayName: Stickspace
+        CFBundleName: "$(PRODUCT_NAME)"
+        CFBundleDisplayName: "$(APP_DISPLAY_NAME)"
         CFBundleShortVersionString: "$(MARKETING_VERSION)"
         CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
         LSMinimumSystemVersion: "14.0"
         LSApplicationCategoryType: public.app-category.productivity
-        NSHumanReadableCopyright: "Stickspace"
+        NSHumanReadableCopyright: "StickSpace"
         NSPrincipalClass: NSApplication
         LSUIElement: true
     settings:
       base:
-        PRODUCT_BUNDLE_IDENTIFIER: com.sgoroshko.stickspace
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ENABLE_PREVIEWS: NO
         ENABLE_DEBUG_DYLIB: NO
+      configs:
+        # Debug is a separate app (own bundle id, name and data folder) so it can run beside the installed one.
+        Debug:
+          PRODUCT_BUNDLE_IDENTIFIER: com.sgoroshko.stickspace.dev
+          PRODUCT_NAME: StickSpaceDev
+          APP_DISPLAY_NAME: StickSpace Dev
+        Release:
+          PRODUCT_BUNDLE_IDENTIFIER: com.sgoroshko.stickspace
+          PRODUCT_NAME: StickSpace
+          APP_DISPLAY_NAME: StickSpace
   StickspaceTests:
     type: bundle.unit-test
     platform: macOS
