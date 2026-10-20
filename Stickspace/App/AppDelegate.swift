@@ -38,7 +38,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             Timer.scheduledTimer(withTimeInterval: 0.2, repeats: false) { [self] _ in
                 let runner = ScreenshotRunner(dir: URL(fileURLWithPath: dir), store: store, windows: windows, helpers: helpers, toasts: toasts,
                                  captureStatusMenu: captureStatusMenu)
-                if ProcessInfo.processInfo.environment["STICKSPACE_TOGGLETEST"] != nil { runner.runToggleTest() } else { runner.run() }
+                if ProcessInfo.processInfo.environment["STICKSPACE_TOGGLETEST"] != nil { runner.runToggleTest() }
+                else if ProcessInfo.processInfo.environment["STICKSPACE_HERO"] != nil { runner.runHero() }
+                else { runner.run() }
             }
             return
         }

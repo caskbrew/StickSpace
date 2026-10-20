@@ -65,6 +65,117 @@ final class ScreenshotRunner {
         NSApp.terminate(nil)
     }
 
+    // MARK: README hero shots
+
+    private final class BackdropView: NSView {
+        var dark = false { didSet { needsDisplay = true } }
+
+        override func draw(_ dirtyRect: NSRect) {
+            let stops: [NSColor] = dark
+                ? [NSColor(srgbRed: 0.03, green: 0.06, blue: 0.15, alpha: 1), NSColor(srgbRed: 0.05, green: 0.13, blue: 0.33, alpha: 1), NSColor(srgbRed: 0.11, green: 0.08, blue: 0.30, alpha: 1)]
+                : [NSColor(srgbRed: 0.94, green: 0.97, blue: 1.0, alpha: 1), NSColor(srgbRed: 0.78, green: 0.87, blue: 1.0, alpha: 1), NSColor(srgbRed: 0.88, green: 0.83, blue: 1.0, alpha: 1)]
+            NSGradient(colors: stops)?.draw(in: bounds, angle: -35)
+            // Soft glows give the glass something to refract.
+            let glow = dark ? NSColor(srgbRed: 0.25, green: 0.5, blue: 1.0, alpha: 0.35) : NSColor(srgbRed: 1, green: 1, blue: 1, alpha: 0.75)
+            NSGradient(colors: [glow, glow.withAlphaComponent(0)])?
+                .draw(fromCenter: NSPoint(x: bounds.width * 0.28, y: bounds.height * 0.72), radius: 0,
+                      toCenter: NSPoint(x: bounds.width * 0.28, y: bounds.height * 0.72), radius: bounds.height * 0.7, options: [])
+            let glow2 = dark ? NSColor(srgbRed: 0.6, green: 0.35, blue: 1.0, alpha: 0.28) : NSColor(srgbRed: 0.75, green: 0.8, blue: 1.0, alpha: 0.6)
+            NSGradient(colors: [glow2, glow2.withAlphaComponent(0)])?
+                .draw(fromCenter: NSPoint(x: bounds.width * 0.85, y: bounds.height * 0.25), radius: 0,
+                      toCenter: NSPoint(x: bounds.width * 0.85, y: bounds.height * 0.25), radius: bounds.height * 0.6, options: [])
+        }
+    }
+
+    /// Captures real screen regions over a gradient backdrop so the glass refracts something pleasant.
+    func runHero() {
+        let screen = NSScreen.main ?? NSScreen.screens[0]
+        let vis = screen.visibleFrame
+        let size = NSSize(width: 1240, height: 400)
+        let origin = NSPoint(x: vis.minX + 60, y: vis.maxY - size.height - 30)
+        let backdrop = NSWindow(contentRect: NSRect(origin: origin, size: size), styleMask: [.borderless], backing: .buffered, defer: false)
+        backdrop.isOpaque = true
+        backdrop.hasShadow = false
+        backdrop.level = .floating
+        backdrop.isReleasedWhenClosed = false
+        let view = BackdropView(frame: NSRect(origin: .zero, size: size))
+        backdrop.contentView = view
+        backdrop.orderFrontRegardless()
+        let above = NSWindow.Level(rawValue: NSWindow.Level.floating.rawValue + 1)
+        let top = Double(origin.y + size.height)
+
+        func place(_ i: Int, x: Double, topOffset: Double, _ g: inout StickGroup) {
+            g.originX = Double(origin.x) + x
+            g.topY = top - topOffset
+        }
+        func newGroup(_ sticks: [Stick], zoom: Double = 1.0) -> StickGroup {
+            var g = StickGroup(sticks: sticks.map { var s = $0; s.id = UUID(); s.blocks = s.blocks.map { var b = $0; b.id = UUID(); return b }; return s })
+            g.zoom = zoom
+            return g
+        }
+        func region() -> String {
+            let y = screen.frame.height - (origin.y + size.height)
+            return "\(Int(origin.x)),\(Int(y)),\(Int(size.width)),\(Int(size.height))"
+        }
+        func shoot(_ path: String) {
+            let p = Process()
+            p.executableURL = URL(fileURLWithPath: "/usr/sbin/screencapture")
+            p.arguments = ["-x", "-R", region(), path]
+            try? p.run(); p.waitUntilExit()
+        }
+
+        var editing = full()
+        editing.blocks[0] = Block(type: .auto, text: "Keep useful things close.\nIdeas, links, and commands\nin one place.")
+        var dev = full(); dev.name = "Dev"
+        dev.blocks = [Block(type: .code, text: "npm run dev"), Block(type: .auto, text: "https://localhost:3000"), Block(type: .auto, text: "api-token-1234", isMasked: true)]
+        var a = newGroup([fullStick(), Stick(name: "Links"), Stick(name: "Personal")])
+        var b = newGroup([editing, Stick(name: "Notes")])
+        var c = newGroup([Stick(name: "Workspace", blocks: [Block(text: "https://github.com")]), Stick(name: "Links"), Stick(name: "Personal")])
+        var d = newGroup([dev])
+        c.isPinned = true
+        place(0, x: 50, topOffset: 48, &a)
+        place(1, x: 450, topOffset: 48, &b)
+        place(2, x: 850, topOffset: 48, &c)
+        place(3, x: 850, topOffset: 170, &d)
+        let sceneStacks = [a, b, c, d]
+        let fm = FileManager.default
+        try? fm.createDirectory(at: dir, withIntermediateDirectories: true)
+
+        for theme in [ThemeChoice.light, .dark] {
+            view.dark = theme == .dark
+            // Scene 1: stacks
+            store.load(AppState(theme: theme, groups: sceneStacks))
+            if let edit = sceneStacks[1].sticks[0].blocks.first?.id { store.editingBlock = edit }
+            windows.sync()
+            wait(1.4)
+            for g in sceneStacks { windows.controllers[g.id]?.panel.orderFrontRegardless(); windows.controllers[g.id]?.panel.level = above }
+            wait(0.6)
+            shoot(dir.appendingPathComponent("hero-stacks-\(theme.rawValue).png").path)
+
+            // Scene 2: helper windows
+            store.editingBlock = nil
+            let stickID = sceneStacks[0].sticks[0].id
+            helpers.showExport(stick: stickID)
+            helpers.showImport(group: nil, index: nil, initialText: #"{"sticks":[{"name":"Workspace","sections":[{"type":"text","text":"Hello"}]},{"name":"Links","sections":[{"type":"link","url":"https://github.com"}]}]}"#)
+            wait(1.0)
+            func put(_ key: String, x: CGFloat, topOff: CGFloat) {
+                guard let w = helpers.window(key) else { return }
+                w.level = above
+                w.setFrameOrigin(NSPoint(x: origin.x + x, y: origin.y + size.height - topOff - w.frame.height))
+            }
+            put("export", x: 110, topOff: 28)
+            put("import", x: 670, topOff: 28)
+            for g in sceneStacks { windows.controllers[g.id]?.panel.orderOut(nil) }
+            wait(0.8)
+            shoot(dir.appendingPathComponent("hero-windows-\(theme.rawValue).png").path)
+            helpers.closeAll()
+            wait(0.3)
+        }
+        NSApp.terminate(nil)
+    }
+
+    private func fullStick() -> Stick { full() }
+
     func run() {
         let fullStick = full()
         var editing = full()

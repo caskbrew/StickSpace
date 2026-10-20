@@ -1,8 +1,13 @@
-# Stickspace
+# StickSpace
 
 Sticky snippets for the macOS menu bar: keep texts, links, commands and secrets in small floating glass windows, copy them in one click, open links without leaving your app.
 
-![Stickspace](docs/readme/overview.png)
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/readme/stacks-dark.png">
+    <img alt="Stickspace stacks: sticks with lines, a line being edited, a pinned stack" src="docs/readme/stacks-light.png">
+  </picture>
+</p>
 
 ## What it is
 
@@ -21,6 +26,13 @@ Sticky snippets for the macOS menu bar: keep texts, links, commands and secrets 
 - **Zoom per stack**: ⌘+ / ⌘− / ⌘0.
 - **Import / Export** as versioned JSON (paste to import; masked lines are excluded from export unless you opt in).
 - Menu bar: New Stack, Import, show/hide each stack, theme switch, Restart, Quit.
+
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="docs/readme/windows-dark.png">
+    <img alt="Export and import windows" src="docs/readme/windows-light.png">
+  </picture>
+</p>
 
 ## Install
 
