@@ -113,7 +113,6 @@ final class GroupWindowController: NSObject, NSWindowDelegate {
     func update(_ group: StickGroup) {
         kick()
         zoom = CGFloat(group.zoom)
-        panel.level = group.isPinned ? .floating : .normal
         let width = Metrics.width * zoom
         if abs(panel.frame.width - width) > 0.5 {
             panel.setFrame(NSRect(x: contentX - margin.width, y: anchorTop - contentHeight - margin.height,

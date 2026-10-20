@@ -20,7 +20,7 @@ Sticky snippets for the macOS menu bar: keep texts, links, commands and secrets 
 - **Copy** any line with one click (exact text, nothing added).
 - **Links**: a line that is a full http(s) address gets an open button. Click opens the browser; **⌘-click opens it in the background** and keeps Stickspace active. The arrow in a stick's title opens all its visible links at once, de-duplicated.
 - **Mask Content**: hide secrets on screen with `••••••••`; reveal temporarily with the eye; copy works without revealing. Masking is visual only, nothing is encrypted.
-- **Pin** a stack above other windows (it also locks the window in place).
+- **Pin** a stack to lock its window in place (pinned windows cannot be dragged away).
 - **Double-click** a stick's title to expand or collapse. **Drag** to reorder sticks and lines. Double-click a line to edit it inline (Auto / Text / Link / Code).
 - **Right-click** a stick or a line for everything else: rename, hide/show, add sticks, zoom, import/export, delete (⌘Z undoes).
 - **Zoom per stack**: ⌘+ / ⌘− / ⌘0.

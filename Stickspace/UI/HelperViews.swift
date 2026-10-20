@@ -259,7 +259,7 @@ struct AboutView: View {
             "Masked lines are skipped by Open All and by Export unless you opt in.",
         ]),
         Topic(title: "Pin", symbol: "pin", bullets: [
-            "One pin per stack, on its top stick. It keeps the whole window above normal windows and locks it in place.",
+            "One pin per stack, on its top stick. A pinned window cannot be moved; it does not stay above other windows.",
             "If you reorder or hide the top stick, the pin moves to the new top stick.",
             "Pinning never takes keyboard focus.",
         ]),

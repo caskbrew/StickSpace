@@ -250,9 +250,10 @@ struct StickView: View {
             }
             if isPinHolder {
                 IconButton(symbol: isPinned ? "pin.fill" : "pin",
-                           label: isPinned ? "Unpin group" : "Pin group on top",
-                           help: isPinned ? "Unpin group" : "Keep group above other windows",
-                           tint: isPinned ? Palette.blue : nil) {
+                           label: isPinned ? "Unpin window" : "Pin window",
+                           help: isPinned ? "Unpin: allow moving this window" : "Pin: lock this window in place",
+                           tint: isPinned ? Palette.blue : nil,
+                           rotation: 45) {
                     store.setPinned(!isPinned, group: groupID)
                 }
             }

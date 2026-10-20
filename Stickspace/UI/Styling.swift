@@ -85,6 +85,7 @@ struct IconButton: View {
     let label: String
     var help: String?
     var tint: Color?
+    var rotation: Double = 0
     var enabled = true
     let action: () -> Void
 
@@ -96,6 +97,7 @@ struct IconButton: View {
             Image(systemName: symbol)
                 .font(.system(size: 12 * z, weight: .regular))
                 .foregroundStyle(tint ?? Palette.icon(scheme))
+                .rotationEffect(.degrees(rotation))
                 .frame(width: 22 * z, height: 22 * z)
                 .contentShape(Rectangle())
         }
