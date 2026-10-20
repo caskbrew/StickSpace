@@ -68,10 +68,14 @@ struct GitRunner {
         return stdout + (stderr.isEmpty ? "" : "\n" + stderr)
     }
 
-    /// Plain output of a command, without stderr mixed in.
-    func output(_ args: [String], in dir: URL? = nil) throws -> String {
-        let text = try run(args, in: dir)
-        return text.trimmingCharacters(in: .whitespacesAndNewlines)
+    /// Trimmed output of a command. With `allowFailure`, a non-zero exit (e.g. `git grep` finding nothing) gives "".
+    func output(_ args: [String], in dir: URL? = nil, allowFailure: Bool = false) throws -> String {
+        do {
+            return try run(args, in: dir).trimmingCharacters(in: .whitespacesAndNewlines)
+        } catch {
+            if allowFailure { return "" }
+            throw error
+        }
     }
 
     private static func friendly(_ text: String) -> String {
