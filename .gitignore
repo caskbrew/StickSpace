@@ -1,0 +1,23 @@
+.DS_Store
+.build/
+.swiftpm/
+*.xcodeproj/xcuserdata/
+DerivedData/
+.superpowers/
+
+# Large design reference images stay local for now (about 20 MB).
+docs/*.png
+*.png
+!Sources/**/*.png
+dist/
+!docs/readme/*.png
+
+# Build output and the generated Xcode project (run `xcodegen generate`)
+build/
+Stickspace.xcodeproj/
+
+# App icon and menu bar glyph assets are source files
+!Stickspace/Resources/**/*.png
+
+# Generated screenshots (run the Debug build with STICKSPACE_SCREENSHOTS=<dir>)
+docs/screens/

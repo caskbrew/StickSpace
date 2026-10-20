@@ -1,0 +1,52 @@
+name: Stickspace
+options:
+  bundleIdPrefix: com.sgoroshko
+  deploymentTarget:
+    macOS: "14.0"
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "1.0.0"
+    CURRENT_PROJECT_VERSION: "1"
+    CODE_SIGN_IDENTITY: "-"
+    CODE_SIGN_STYLE: Manual
+    DEVELOPMENT_TEAM: ""
+    ENABLE_HARDENED_RUNTIME: NO
+targets:
+  Stickspace:
+    type: application
+    platform: macOS
+    sources: [Stickspace]
+    info:
+      path: Stickspace/Info.plist
+      properties:
+        CFBundleName: Stickspace
+        CFBundleDisplayName: Stickspace
+        CFBundleShortVersionString: "$(MARKETING_VERSION)"
+        CFBundleVersion: "$(CURRENT_PROJECT_VERSION)"
+        LSMinimumSystemVersion: "14.0"
+        LSApplicationCategoryType: public.app-category.productivity
+        NSHumanReadableCopyright: "Stickspace"
+        NSPrincipalClass: NSApplication
+        LSUIElement: true
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.sgoroshko.stickspace
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ENABLE_PREVIEWS: NO
+        ENABLE_DEBUG_DYLIB: NO
+  StickspaceTests:
+    type: bundle.unit-test
+    platform: macOS
+    sources: [StickspaceTests, Stickspace/Core]
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.sgoroshko.stickspace.tests
+        GENERATE_INFOPLIST_FILE: YES
+schemes:
+  Stickspace:
+    build:
+      targets:
+        Stickspace: all
+    test:
+      targets: [StickspaceTests]
