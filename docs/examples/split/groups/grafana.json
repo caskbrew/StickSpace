@@ -1,41 +1,41 @@
 {
   "version": 2,
-  "id": "9062635e-c4db-489f-8968-8e4103fa0236",
+  "id": "f2f26167-98d6-4938-91f4-d83e581cc8d7",
   "name": "Grafana",
   "entities": [
     {
-      "id": "948b6a34-7544-479a-afa1-03251de407e3",
+      "id": "a812b893-13fc-4111-ae96-662ce5fb3c54",
       "type": "link",
-      "title": "Cluster overview",
       "url": "https://grafana.example.com/d/k8s-overview?var-env=prod",
+      "title": "Cluster overview",
       "tags": ["prod"]
     },
     {
-      "id": "24170159-4a92-4984-8092-2715cfb3145b",
+      "id": "25bc65de-5109-400c-96bc-1ec25e79846b",
       "type": "link",
-      "title": "Cluster overview",
       "url": "https://grafana.example.com/d/k8s-overview?var-env=stg",
+      "title": "Cluster overview",
       "tags": ["stg"]
     },
     {
-      "id": "1977972f-e390-4360-8b18-d709582f859a",
+      "id": "aca7493f-6ec1-4e8d-b1f4-a6ad23abef20",
       "type": "link",
-      "title": "Cluster overview",
       "url": "https://grafana.example.com/d/k8s-overview?var-env=dev",
+      "title": "Cluster overview",
       "tags": ["dev"]
     },
     {
-      "id": "e23c883e-4c15-4fe5-928e-8b26580ec7dd",
+      "id": "555c104c-3674-40ff-8e9d-d78a92d61670",
       "type": "link",
-      "title": "Postgres",
       "url": "https://grafana.example.com/d/pg-main/postgres?var-env=prod",
+      "title": "Postgres",
       "tags": ["prod"]
     },
     {
-      "id": "b2011768-e5d3-49e2-b5b4-ae8410d5b03f",
+      "id": "9b901957-b3e9-44a2-8257-d4c422dbef07",
       "type": "link",
-      "title": "Latency (p99)",
       "url": "https://grafana.example.com/d/edge-latency/latency",
+      "title": "Latency (p99)",
       "tags": ["prod"]
     }
   ]

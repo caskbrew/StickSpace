@@ -1,0 +1,117 @@
+{
+  "version": 2,
+  "name": "Platform team",
+  "groups": [
+    {
+      "id": "bc8cd233-282d-4eb7-8cf3-1b093e82826c",
+      "name": "Clusters",
+      "entities": [
+        {
+          "id": "66ff139f-0bde-48cb-9dbc-574ea0cec0d1",
+          "type": "text",
+          "text": "kubectl --context prod-eu-1 get pods -n platform",
+          "title": "prod (eu)",
+          "tags": ["prod"]
+        },
+        {
+          "id": "dffbdfa8-ebd9-408f-9796-129915f8d613",
+          "type": "text",
+          "text": "kubectl --context prod-us-1 get pods -n platform",
+          "title": "prod (us)",
+          "tags": ["prod"]
+        },
+        {
+          "id": "985dba21-f289-4453-a4d5-9060d7bcb5ad",
+          "type": "text",
+          "text": "kubectl --context stg-1 get pods -n platform",
+          "title": "stg",
+          "tags": ["stg"]
+        },
+        {
+          "id": "48dc8314-0091-46e1-a8c3-5868ec4bf9c4",
+          "type": "text",
+          "text": "kubectl --context dev-1 get pods -n platform",
+          "title": "dev",
+          "tags": ["dev"]
+        },
+        {
+          "id": "5a00a447-f91f-4d96-acd9-cf6eae359694",
+          "type": "link",
+          "url": "https://argocd.example.com/applications",
+          "title": "ArgoCD"
+        }
+      ]
+    },
+    {
+      "id": "27608632-ff4b-4943-a282-688adcd579d6",
+      "name": "Grafana",
+      "entities": [
+        {
+          "id": "3a8e0107-5f1c-4550-aaad-c010e0e21038",
+          "type": "link",
+          "url": "https://grafana.example.com/d/k8s-overview?var-env=prod",
+          "title": "Cluster overview",
+          "tags": ["prod"]
+        },
+        {
+          "id": "a7d409c8-907e-429b-887e-df129fab10f2",
+          "type": "link",
+          "url": "https://grafana.example.com/d/k8s-overview?var-env=stg",
+          "title": "Cluster overview",
+          "tags": ["stg"]
+        },
+        {
+          "id": "6b1a8610-05c2-4f86-8557-5f1f18c129f7",
+          "type": "link",
+          "url": "https://grafana.example.com/d/k8s-overview?var-env=dev",
+          "title": "Cluster overview",
+          "tags": ["dev"]
+        },
+        {
+          "id": "f8b9c310-4d88-4293-bc13-b8a5085274c7",
+          "type": "link",
+          "url": "https://grafana.example.com/d/pg-main/postgres?var-env=prod",
+          "title": "Postgres",
+          "tags": ["prod"]
+        },
+        {
+          "id": "02484792-31c2-4a08-aedc-6ed3c4974c04",
+          "type": "link",
+          "url": "https://grafana.example.com/d/edge-latency/latency",
+          "title": "Latency (p99)",
+          "tags": ["prod"]
+        }
+      ]
+    },
+    {
+      "id": "13ceab14-6a42-4e72-83cc-80985fe8982f",
+      "name": "Jira & docs",
+      "entities": [
+        {
+          "id": "e61ce5de-3b14-45bd-9af0-8b211fc0c03a",
+          "type": "link",
+          "url": "https://jira.example.com/secure/RapidBoard.jspa?rapidView=42",
+          "title": "Team board"
+        },
+        {
+          "id": "be470a39-639b-4cd9-b773-1af2aae007f6",
+          "type": "link",
+          "url": "https://jira.example.com/issues/?jql=project%20%3D%20OPS%20AND%20type%20%3D%20Incident",
+          "title": "Incidents"
+        },
+        {
+          "id": "482ff918-546e-48c6-a8e5-aa40bfd732dd",
+          "type": "link",
+          "url": "https://wiki.example.com/display/OPS/Runbooks",
+          "title": "Runbooks"
+        },
+        {
+          "id": "b2ff5dac-18cc-46f2-9ac0-d062564940b3",
+          "type": "link",
+          "url": "https://pagerduty.example.com/schedules#PXYZ123",
+          "title": "On-call schedule"
+        }
+      ]
+    }
+  ]
+}

@@ -1,42 +1,41 @@
 {
   "version": 2,
-  "id": "236fb47a-87f2-4b21-899a-d59f67b67de2",
+  "id": "fbf775c6-5453-4661-a2ad-613f66c77d10",
   "name": "Clusters",
   "entities": [
     {
-      "id": "137bc2ee-8788-4bc3-988a-5b98fe0979ef",
+      "id": "3d1779e9-0933-411d-8ed7-5da7968b9f89",
       "type": "text",
       "text": "kubectl --context prod-eu-1 get pods -n platform",
       "title": "prod (eu)",
       "tags": ["prod"]
     },
     {
-      "id": "45ac2a2e-0932-44cb-b60a-e7704a05f35e",
+      "id": "cad81b5f-a6ee-428b-83e9-9686e3b8a593",
       "type": "text",
       "text": "kubectl --context prod-us-1 get pods -n platform",
       "title": "prod (us)",
       "tags": ["prod"]
     },
     {
-      "id": "79c09fe4-82c6-4f68-a9c2-6d63c010fee1",
+      "id": "aae6b642-b1aa-40fb-b1f9-9ffb3fb89f7a",
       "type": "text",
       "text": "kubectl --context stg-1 get pods -n platform",
       "title": "stg",
       "tags": ["stg"]
     },
     {
-      "id": "9b6d3d8e-1a43-42b9-b2ef-0a3d970ec54b",
+      "id": "87b001b0-b1cc-4196-b3cc-58a0caac6e76",
       "type": "text",
       "text": "kubectl --context dev-1 get pods -n platform",
       "title": "dev",
       "tags": ["dev"]
     },
     {
-      "id": "43897fb4-b73c-427b-8f20-aa2e29db2d24",
+      "id": "ca6f60e6-a39c-4012-8dcc-a02c7b898faf",
       "type": "link",
-      "title": "ArgoCD",
       "url": "https://argocd.example.com/applications",
-      "tags": []
+      "title": "ArgoCD"
     }
   ]
 }
