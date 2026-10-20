@@ -213,6 +213,7 @@ struct ImportView: View {
             }
             .frame(height: 34, alignment: .topLeading)
             HStack {
+                AppButton(title: "Paste", action: paste)
                 Spacer()
                 AppButton(title: "Cancel", action: close).keyboardShortcut(.cancelAction)
                 AppButton(title: "Import", style: .primary, enabled: !parsed.isEmpty && error == nil, action: doImport)
@@ -249,6 +250,10 @@ struct ImportView: View {
         }
     }
 
+    private func paste() {
+        if let clip = NSPasteboard.general.string(forType: .string) { text = clip }
+    }
+
     private func doImport() {
         store.insert(parsed, group: group, atVisible: visibleIndex, spaceName: Interchange.spaceName(in: text) ?? "Imported Space")
         close()
@@ -269,7 +274,7 @@ struct AboutView: View {
         Topic(title: "Getting Started", symbol: "questionmark.circle", bullets: [
             "An entity holds one piece of text. Entities form a group, and groups form a space: one window.",
             "The space header is always on top. Double-click it to fold the groups away or bring them back.",
-            "Double-click a group's title to expand or collapse it. Several can stay open; tick One at a Time in the space's header menu to keep just one open.",
+            "Double-click a group's title to expand or collapse it. Several can stay open; tick Single in the space's header menu to keep just one open.",
             "Double-click an entity to edit it. Esc or ⌘↩ finishes; text is saved as you type.",
             "Drag the dotted grip to reorder groups; drag an entity up or down to reorder entities within its group.",
             "Drag the space header or a group's title row to move the whole window (not while it is pinned).",
@@ -283,8 +288,8 @@ struct AboutView: View {
         ]),
         Topic(title: "Hidden Items", symbol: "eye.slash", bullets: [
             "Hide (right-click a group or entity) tucks it away without deleting it; the item shows a check mark while hidden.",
-            "Tick Hidden in the space's header menu to list hidden items, dimmed, in place.",
-            "While they are listed, right-click a hidden item and untick Hide to bring it back. Untick Hidden again to tuck them away.",
+            "Tick Show Hidden in the space's header menu to list hidden items, dimmed, in place.",
+            "While they are listed, right-click a hidden item and untick Hide to bring it back. Untick Show Hidden again to tuck them away.",
             "Hidden items can still be reordered and deleted while listed. Open All and Export skip hidden entities.",
         ]),
         Topic(title: "Sensitive Content", symbol: "eye", bullets: [
@@ -300,7 +305,7 @@ struct AboutView: View {
             "Pinning never takes keyboard focus.",
         ]),
         Topic(title: "Context Menus", symbol: "contextualmenu.and.cursorarrow", bullets: [
-            "Right-click the space header for Rename, Add Group, Import Group, Export, One at a Time, Hidden, zoom, Close and Delete.",
+            "Right-click the space header for Rename, Add Group, Import Group, Export, Single, Show Hidden, zoom, Delete and Close.",
             "Right-click a group for Rename, Hide, Add Group Above/Below, Import, Export and Delete.",
             "Right-click an entity for Move Up/Down, Hide, Mask and Delete. Editing is a double-click; copying is its button.",
             "Close hides the whole window; bring it back from the menu bar.",
@@ -323,7 +328,7 @@ struct AboutView: View {
             "Zoom applies only to the space you last used and is remembered per space.",
         ]),
         Topic(title: "Import & Export (JSON)", symbol: "doc", bullets: [
-            "Paste JSON to import. Import never overwrites existing groups.",
+            "Paste JSON to import (the Paste button fills the box from the clipboard). Import never overwrites existing groups.",
             "Menu bar → Import takes a space. A group's menu → Import Group takes exactly one group.",
             "Export one group or its whole space: copy the JSON.",
             "Sensitive entities are excluded unless you tick the option, which writes them as plain text.",
