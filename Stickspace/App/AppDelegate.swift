@@ -98,7 +98,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             importInto: { [unowned self] group, index in helpers.showImport(group: group, index: index) },
             export: { [unowned self] in helpers.showExport(stick: $0) },
             exportSpace: { [unowned self] in helpers.showExport(space: $0) },
-            importGit: { [unowned self] in helpers.showGitImport(space: $0) },
             sync: { [unowned self] in sync.sync(space: $0) },
             push: { [unowned self] in sync.push(space: $0) },
             gitStatus: { [unowned self] space in
@@ -146,7 +145,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// A new space (window); groups are added from its header.
     @objc func addSpace() { helpers.showNewStick(group: nil, index: nil) }
     @objc func importSpace() { helpers.showImport(group: nil, index: nil) }
-    @objc func importGit() { helpers.showGitImport(space: nil) }
 
     /// Something to read after a sync or push; the link, if any, is a merge request page.
     private func showMessage(_ title: String, _ text: String, _ link: String?) {
@@ -252,7 +250,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.removeAllItems()
         menu.addAction("New Space", key: "n") { [unowned self] in addSpace() }
         menu.addAction("Import", key: "i") { [unowned self] in importSpace() }
-        menu.addAction("Import from Git") { [unowned self] in importGit() }
         menu.addItem(.separator())
 
         // One entry per space (window): check = shown.

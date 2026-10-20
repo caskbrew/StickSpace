@@ -9,7 +9,6 @@ struct WindowActions {
     var importInto: (_ space: UUID, _ visibleIndex: Int?) -> Void = { _, _ in }
     var export: (_ stick: UUID) -> Void = { _ in }
     var exportSpace: (_ space: UUID) -> Void = { _ in }
-    var importGit: (_ space: UUID?) -> Void = { _ in }
     var sync: (_ space: UUID) -> Void = { _ in }
     var push: (_ space: UUID) -> Void = { _ in }
     var gitStatus: (_ space: StickGroup) -> GitStatus = { _ in GitStatus() }
@@ -510,8 +509,7 @@ struct SpaceHeader: View {
         menu.addAction("Rename") { actions.renameSpace(space.id) }
         menu.addAction("Add Group") { actions.newStick(space.id, nil) }
         menu.addItem(.separator())
-        menu.addAction("Import Group") { actions.importInto(space.id, nil) }
-        menu.addAction("Import from Git") { actions.importGit(space.id) }
+        menu.addAction("Import") { actions.importInto(space.id, nil) }
         menu.addAction("Export") { actions.exportSpace(space.id) }
         let git = actions.gitStatus(space)
         if git.hasSources {

@@ -194,7 +194,6 @@ struct ImportView: View {
     @Environment(\.colorScheme) private var scheme
 
     var body: some View {
-        // Bare surface like New Space: no title row, no close button (Esc or Cancel closes).
         VStack(alignment: .leading, spacing: 10) {
             AppCodeBox { JSONEditor(text: $text) }
                 .frame(height: 200)
@@ -220,10 +219,6 @@ struct ImportView: View {
                     .keyboardShortcut(.defaultAction)
             }
         }
-        .padding(14)
-        .frame(width: 460)
-        .foregroundStyle(Palette.text(scheme))
-        .stickSurface(radius: 12)
         .onChange(of: text) { _, new in reparse(new) }
         .onAppear { if !text.isEmpty { reparse(text) } }
     }
@@ -260,9 +255,58 @@ struct ImportView: View {
     }
 }
 
+// MARK: - Import window (two tabs)
+
+/// One Import window for every menu: paste JSON, or read from Git. `space == nil` means a whole new space.
+struct ImportWindowView: View {
+    enum Tab: Hashable { case json, git }
+
+    @ObservedObject var store: AppStore
+    let sync: SyncController
+    let space: UUID?
+    let visibleIndex: Int?
+    let initialText: String
+    let close: () -> Void
+    @State private var tab: Tab
+
+    /// Both tabs are laid out in the same box, so switching never resizes the window.
+    static let contentHeight: CGFloat = 282
+
+    @Environment(\.colorScheme) private var scheme
+
+    init(store: AppStore, sync: SyncController, space: UUID?, visibleIndex: Int?, initialText: String = "", tab: Tab = .json,
+         close: @escaping () -> Void) {
+        self.store = store
+        self.sync = sync
+        self.space = space
+        self.visibleIndex = visibleIndex
+        self.initialText = initialText
+        self.close = close
+        _tab = State(initialValue: tab)
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            AppSegmented(options: [(Tab.json, "JSON"), (Tab.git, "Git")], selection: $tab)
+            Group {
+                if tab == .json {
+                    ImportView(store: store, group: space, visibleIndex: visibleIndex, initialText: initialText, close: close)
+                } else {
+                    GitImportView(store: store, sync: sync, targetSpace: space, close: close)
+                }
+            }
+            .frame(height: Self.contentHeight, alignment: .top)
+        }
+        .padding(14)
+        .frame(width: 460)
+        .foregroundStyle(Palette.text(scheme))
+        .stickSurface(radius: 12)
+    }
+}
+
 // MARK: - Import from Git
 
-/// A space file becomes a new space; a group file is added to `targetSpace`. Bare glass panel like the other import window.
+/// The "Git" tab of the import window. A space file becomes a new space; a group file is added to `targetSpace`.
 struct GitImportView: View {
     enum Kind: Hashable { case space, file }
 
@@ -313,6 +357,7 @@ struct GitImportView: View {
             } else if kind == .space && targetSpace != nil {
                 Text("Creates a new space with every group in the file.").font(.system(size: 12)).foregroundStyle(.secondary)
             }
+            Spacer(minLength: 0)
             HStack {
                 Spacer()
                 AppButton(title: "Cancel", action: close).keyboardShortcut(.cancelAction)
@@ -320,10 +365,6 @@ struct GitImportView: View {
                     .keyboardShortcut(.defaultAction)
             }
         }
-        .padding(14)
-        .frame(width: 460)
-        .foregroundStyle(Palette.text(scheme))
-        .stickSurface(radius: 12)
     }
 
     private func start() {
@@ -392,7 +433,7 @@ struct AboutView: View {
             "Pinning never takes keyboard focus.",
         ]),
         Topic(title: "Context Menus", symbol: "contextualmenu.and.cursorarrow", bullets: [
-            "Right-click the space header for Rename, Add Group, Import Group, Export, Single, Show Hidden, zoom, Delete and Close.",
+            "Right-click the space header for Rename, Add Group, Import, Export, Single, Show Hidden, zoom, Delete and Close.",
             "Right-click a group for Rename, Hide, Add Group Above/Below, Import, Export and Delete.",
             "Right-click an entity for Move Up/Down, Hide, Mask and Delete. Editing is a double-click; copying is its button.",
             "Close hides the whole window; bring it back from the menu bar.",
@@ -416,7 +457,7 @@ struct AboutView: View {
         ]),
         Topic(title: "Git Sync", symbol: "arrow.triangle.2.circlepath", bullets: [
             "Share a space with your team through a Git repository (GitLab, GitHub, anything git can reach). Needs git: run “xcode-select --install” if it is missing.",
-            "Menu bar → Import from Git takes a space file and makes a new space of it. A space's menu → Import from Git adds one group file to that space.",
+            "Every Import window has two tabs, JSON and Git. In the Git tab, a space file becomes a new space (menu bar) and a group file is added to the space whose menu you opened.",
             "Groups from Git can be edited here. Sync (space menu) brings in what others changed; yours is kept when you both edited the same entity.",
             "Push sends your changes to a new branch (a merge request on GitLab); it syncs first. A tag cannot be pushed to.",
             "Revert (group or entity menu) goes back to the repository's version. Masked entities and custom groups never leave this Mac.",
@@ -424,7 +465,7 @@ struct AboutView: View {
         ]),
         Topic(title: "Import & Export (JSON)", symbol: "doc", bullets: [
             "Paste JSON to import (the Paste button fills the box from the clipboard). Import never overwrites existing groups.",
-            "Menu bar → Import takes a space. A group's menu → Import Group takes exactly one group.",
+            "Menu bar → Import takes a space. A group's or a space's menu → Import takes exactly one group.",
             "Export one group or its whole space: copy the JSON.",
             "Sensitive entities are excluded unless you tick the option, which writes them as plain text.",
         ]),

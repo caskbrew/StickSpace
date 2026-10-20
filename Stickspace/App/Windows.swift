@@ -333,16 +333,12 @@ final class HelperWindows: NSObject, NSWindowDelegate {
     }
 
     /// `group == nil` imports a whole space as a new window; otherwise one group into that space.
-    func showImport(group: UUID?, index: Int?, initialText: String = "") {
-        presentApp("import") { close in
-            ImportView(store: self.store, group: group, visibleIndex: index, initialText: initialText, close: close)
-        }
-    }
-
-    /// A space from a space file (space == nil), or a group file / space file chosen inside a space.
-    func showGitImport(space: UUID?) {
+    /// Two tabs: pasted JSON, or a file in a Git repository.
+    func showImport(group: UUID?, index: Int?, initialText: String = "", tab: ImportWindowView.Tab = .json) {
         guard let sync else { return }
-        presentApp("git") { close in GitImportView(store: self.store, sync: sync, targetSpace: space, close: close) }
+        presentApp("import") { close in
+            ImportWindowView(store: self.store, sync: sync, space: group, visibleIndex: index, initialText: initialText, tab: tab, close: close)
+        }
     }
 
     func showExport(stick: UUID, includeSensitive: Bool = false, wholeSpace: Bool = false) {
