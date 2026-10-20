@@ -2,9 +2,19 @@ import Foundation
 import CoreGraphics
 
 enum BlockType: String, CaseIterable {
-    case auto, text, link, code
+    case text, link
 
     var title: String { rawValue.capitalized }
+
+    /// Reads a stored or imported type. Older files also had "auto" (a link when the text is an address) and "code" (plain text).
+    static func parse(_ raw: String, text: String) -> BlockType? {
+        switch raw.lowercased() {
+        case "text", "code": return .text
+        case "link": return .link
+        case "auto": return LinkCheck.url(from: text) != nil ? .link : .text
+        default: return nil
+        }
+    }
 }
 
 enum ThemeChoice: String, CaseIterable {
@@ -14,7 +24,7 @@ enum ThemeChoice: String, CaseIterable {
 /// An entity ("block" in code): one piece of text. Kept free of UI types so it can be tested in isolation.
 struct Block: Identifiable, Equatable {
     var id = UUID()
-    var type: BlockType = .auto
+    var type: BlockType = .text
     var text = ""
     var isHidden = false
     var isMasked = false
@@ -24,7 +34,7 @@ struct Block: Identifiable, Equatable {
 }
 
 enum BlockKind: Equatable {
-    case text, code, link(URL)
+    case text, link(URL)
 }
 
 extension Block {
@@ -38,15 +48,10 @@ extension Block {
 
     var hasTitle: Bool { !title.trimmingCharacters(in: .whitespaces).isEmpty }
 
-    /// Auto and Link blocks are links only when the *whole* text is a valid http(s) address.
+    /// A Link entity is a link only when the *whole* text is a valid http(s) address.
     var kind: BlockKind {
-        switch type {
-        case .code: return .code
-        case .text: return .text
-        case .auto, .link:
-            if let url = LinkCheck.url(from: text) { return .link(url) }
-            return .text
-        }
+        if type == .link, let url = LinkCheck.url(from: text) { return .link(url) }
+        return .text
     }
 
     var linkURL: URL? {

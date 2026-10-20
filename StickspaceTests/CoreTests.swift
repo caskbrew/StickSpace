@@ -5,8 +5,8 @@ final class PersistenceTests: XCTestCase {
         var stick = Stick(name: "Workspace", blocks: [
             Block(type: .text, text: "plain note"),
             Block(type: .link, text: "https://github.com"),
-            Block(type: .code, text: "npm run dev", isHidden: true),
-            Block(type: .auto, text: "hunter2", isMasked: true),
+            Block(type: .text, text: "npm run dev", isHidden: true),
+            Block(type: .text, text: "hunter2", isMasked: true),
         ])
         stick.isExpanded = true
         var group = StickGroup(sticks: [stick, Stick(name: "Links", isHidden: true)])
@@ -70,8 +70,8 @@ final class InterchangeTests: XCTestCase {
         Stick(name: "Links", blocks: [
             Block(type: .link, text: "https://github.com"),
             Block(type: .text, text: "line one\nline two"),
-            Block(type: .code, text: "ls -la", isHidden: true),
-            Block(type: .auto, text: "top-secret", isMasked: true),
+            Block(type: .text, text: "ls -la", isHidden: true),
+            Block(type: .text, text: "top-secret", isMasked: true),
         ]),
         Stick(name: "Empty"),
     ]
@@ -148,35 +148,41 @@ final class InterchangeTests: XCTestCase {
 
 final class LinkTests: XCTestCase {
     func testWholeBlockUrlIsALink() {
-        XCTAssertNotNil(Block(text: "https://github.com").linkURL)
-        XCTAssertNotNil(Block(text: "  http://example.com/a?b=1  \n").linkURL)
+        XCTAssertNotNil(Block(type: .link, text: "https://github.com").linkURL)
+        XCTAssertNotNil(Block(type: .link, text: "  http://example.com/a?b=1  \n").linkURL)
         XCTAssertEqual(Block(type: .link, text: "https://figma.com").kind, .link(URL(string: "https://figma.com")!))
     }
 
     func testEmbeddedOrNonHttpTextIsNotALink() {
-        XCTAssertNil(Block(text: "see https://github.com for more").linkURL)
-        XCTAssertNil(Block(text: "https://a.com https://b.com").linkURL)
-        XCTAssertNil(Block(text: "ftp://example.com").linkURL)
-        XCTAssertNil(Block(text: "javascript:alert(1)").linkURL)
-        XCTAssertNil(Block(text: "https://").linkURL)
-        XCTAssertNil(Block(text: "example.com").linkURL)
+        XCTAssertNil(Block(type: .link, text: "see https://github.com for more").linkURL)
+        XCTAssertNil(Block(type: .link, text: "https://a.com https://b.com").linkURL)
+        XCTAssertNil(Block(type: .link, text: "ftp://example.com").linkURL)
+        XCTAssertNil(Block(type: .link, text: "javascript:alert(1)").linkURL)
+        XCTAssertNil(Block(type: .link, text: "https://").linkURL)
+        XCTAssertNil(Block(type: .link, text: "example.com").linkURL)
     }
 
-    func testManualTypeOverridesAuto() {
+    func testTextTypeNeverLinks() {
         XCTAssertNil(Block(type: .text, text: "https://github.com").linkURL)
-        XCTAssertNil(Block(type: .code, text: "https://github.com").linkURL)
-        XCTAssertEqual(Block(type: .code, text: "x").kind, .code)
+        XCTAssertEqual(Block(type: .link, text: "x").kind, .text)
+    }
+
+    func testOldTypesAreMapped() {
+        XCTAssertEqual(BlockType.parse("auto", text: "https://a.com"), .link)
+        XCTAssertEqual(BlockType.parse("auto", text: "hello"), .text)
+        XCTAssertEqual(BlockType.parse("code", text: "ls"), .text)
+        XCTAssertNil(BlockType.parse("nope", text: ""))
     }
 
     func testOpenAllSelection() {
         let stick = Stick(name: "S", blocks: [
-            Block(text: "https://a.com"),
-            Block(text: "not a link"),
-            Block(text: "https://hidden.com", isHidden: true),
-            Block(text: "https://secret.com", isMasked: true),
+            Block(type: .link, text: "https://a.com"),
+            Block(type: .link, text: "not a link"),
+            Block(type: .link, text: "https://hidden.com", isHidden: true),
+            Block(type: .link, text: "https://secret.com", isMasked: true),
             Block(type: .link, text: "https://b.com"),
-            Block(text: "https://a.com"),
-            Block(type: .code, text: "https://code.com"),
+            Block(type: .link, text: "https://a.com"),
+            Block(type: .text, text: "https://code.com"),
         ])
         XCTAssertEqual(stick.openableLinks.map(\.absoluteString), ["https://a.com", "https://b.com"])
         XCTAssertTrue(Stick(name: "none", blocks: [Block(text: "x")]).openableLinks.isEmpty)

@@ -81,20 +81,26 @@ struct GroupView: View {
         .animation(anim, value: order)
         .coordinateSpace(name: "group")
         .onPreferenceChange(FramesKey.self) { frames = $0 }
-        // Clipped like a group's rows, so folding the space reveals/hides them the way expanding a group does.
+
+        // Same recipe as a group's rows: the groups are inserted at full size inside a clipping container whose height
+        // animates, so folding the space slides them away and opening it slides them down from under the header.
         // The mask grows while a group is dragged so the lifted one is never cut off.
+        let groups = VStack(spacing: 0) {
+            if !g.isCollapsed {
+                VStack(spacing: 0) {
+                    if sticks.isEmpty { AddGroupRow(actions: actions, spaceID: g.id) } else { list }
+                }
+                .padding(.top, Metrics.gap * z)
+                .transition(.opacity)
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .top)
         .mask { Rectangle().padding(drag == nil ? 0 : -80 * z) }
 
-        let content = VStack(spacing: Metrics.gap * z) {
+        let content = VStack(spacing: 0) {
             SpaceHeader(store: store, space: g, actions: actions, onToggle: { toggleSpace(g) })
                 .zIndex(1)
-            if !g.isCollapsed {
-                if sticks.isEmpty {
-                    AddGroupRow(actions: actions, spaceID: g.id).transition(.opacity)
-                } else {
-                    list.transition(.opacity)
-                }
-            }
+            groups
         }
         .frame(width: CGFloat(g.width) * z)
         .environment(\.zoom, z)
@@ -598,7 +604,6 @@ struct BlockRow: View {
         switch block.kind {
         case .text: return "doc.text"
         case .link: return "link"
-        case .code: return "chevron.right"
         }
     }
 
@@ -613,7 +618,7 @@ struct BlockRow: View {
 
     private func iconView(grip: Bool = false) -> some View {
         let image = Image(systemName: icon)
-            .font(.system(size: 12 * z, weight: block.kind == .code && !block.isMasked ? .bold : .regular))
+            .font(.system(size: 12 * z))
             .foregroundStyle(block.isMasked ? Palette.icon(scheme) : Color.secondary)
             .frame(width: 18 * z, height: 22 * z)
         if grip {
@@ -664,8 +669,6 @@ struct BlockRow: View {
             Text("Empty").font(.system(size: 13 * z)).foregroundStyle(.tertiary)
         } else {
             switch block.kind {
-            case .code:
-                Text(verbatim: block.text).font(.system(size: 12.5 * z, design: .monospaced))
             case .link:
                 Text(verbatim: block.text).font(.system(size: 13 * z)).foregroundStyle(Palette.link(scheme))
             case .text:
@@ -748,7 +751,7 @@ struct BlockRow: View {
             VStack(alignment: .leading, spacing: 5 * z) {
                 InlineEditor(
                     text: Binding(get: { store.block(block.id)?.text ?? "" }, set: { store.setText($0, block: block.id) }),
-                    fontSize: 13 * z, monospaced: block.type == .code,
+                    fontSize: 13 * z, monospaced: false,
                     onFinish: { store.editingBlock = nil })
                     .padding(.horizontal, 6 * z)
                     .padding(.vertical, 4 * z)
@@ -825,7 +828,7 @@ struct BlockRow: View {
     private static let controlHeight: CGFloat = 20
 
     private static let typeSymbols: [BlockType: String] = [
-        .auto: "sparkles", .text: "doc.text", .link: "link", .code: "chevron.left.forwardslash.chevron.right",
+        .text: "doc.text", .link: "link",
     ]
 
     /// Icon-only segments; the selected one also shows its name.
@@ -845,7 +848,7 @@ struct BlockRow: View {
                     .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
-                .help(type == .auto ? "Auto: detect links" : type.title)
+                .help(type == .link ? "Link: shows an open button" : "Text")
                 .accessibilityLabel("Type \(type.title)")
                 .accessibilityAddTraits(selected ? .isSelected : [])
             }

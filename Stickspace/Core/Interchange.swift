@@ -105,15 +105,17 @@ enum Interchange {
         for (i, item) in sections.enumerated() {
             let where_ = "Group \"\(name)\", entity #\(i + 1)"
             guard let s = item as? [String: Any] else { throw ImportError(message: "\(where_): must be an object.") }
-            var type = BlockType.auto
-            if let raw = s["type"] {
-                guard let str = raw as? String, let t = BlockType(rawValue: str.lowercased()) else {
-                    throw ImportError(message: "\(where_): \"type\" must be auto, text, link or code.")
-                }
-                type = t
-            }
+            var type = BlockType.text
             let value = (s["text"] ?? s["url"])
             guard let text = value as? String else { throw ImportError(message: "\(where_): missing \"text\".") }
+            if let raw = s["type"] {
+                guard let str = raw as? String, let t = BlockType.parse(str, text: text) else {
+                    throw ImportError(message: "\(where_): \"type\" must be text or link.")
+                }
+                type = t
+            } else if LinkCheck.url(from: text) != nil {
+                type = .link
+            }
             var block = Block(type: type, text: text)
             if let raw = s["title"] {
                 guard let str = raw as? String else { throw ImportError(message: "\(where_): \"title\" must be a string.") }

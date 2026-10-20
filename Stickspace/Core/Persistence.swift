@@ -69,7 +69,7 @@ enum StateCodec {
         state.groups = p.groups.map { g in
             StickGroup(id: g.id, sticks: g.sticks.map { s in
                 Stick(id: s.id, name: s.name, blocks: s.blocks.map { b in
-                    Block(id: b.id, type: BlockType(rawValue: b.type) ?? .auto,
+                    Block(id: b.id, type: BlockType.parse(b.type, text: b.text) ?? .text,
                           text: b.text, isHidden: b.hidden, isMasked: b.masked,
                           title: b.title ?? "", tags: b.tags ?? [])
                 }, isHidden: s.hidden, isExpanded: s.expanded)

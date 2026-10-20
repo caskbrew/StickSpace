@@ -31,12 +31,12 @@ final class ScreenshotRunner {
 
     private func full() -> Stick {
         var s = Stick(name: "Workspace", blocks: [
-            Block(type: .auto, text: "Keep useful things close."),
-            Block(type: .auto, text: "https://grafana.corp.example.com/d/8fKq2/cluster-overview?orgId=1&var-env=prod", title: "Grafana", tags: ["prod"]),
-            Block(type: .auto, text: "https://grafana.corp.example.com/d/8fKq2/cluster-overview?orgId=1&var-env=stg", title: "Grafana", tags: ["stg"]),
-            Block(type: .auto, text: "https://figma.com", tags: ["dev", "design"]),
-            Block(type: .auto, text: "demo-secret", isMasked: true),
-            Block(type: .code, text: "npm run dev"),
+            Block(type: .text, text: "Keep useful things close."),
+            Block(type: .link, text: "https://grafana.corp.example.com/d/8fKq2/cluster-overview?orgId=1&var-env=prod", title: "Grafana", tags: ["prod"]),
+            Block(type: .link, text: "https://grafana.corp.example.com/d/8fKq2/cluster-overview?orgId=1&var-env=stg", title: "Grafana", tags: ["stg"]),
+            Block(type: .link, text: "https://figma.com", tags: ["dev", "design"]),
+            Block(type: .text, text: "demo-secret", isMasked: true),
+            Block(type: .text, text: "npm run dev"),
         ])
         s.isExpanded = true
         return s
@@ -50,6 +50,9 @@ final class ScreenshotRunner {
     func runToggleTest() {
         var g = StickGroup(sticks: collapsed() + [Stick(name: "Fourth")])
         g.sticks[1].blocks = [Block(text: "one"), Block(text: "two"), Block(text: "three")]
+        let stickMode = ProcessInfo.processInfo.environment["STICKSPACE_TOGGLETEST"] == "stick"
+        g.sticks[1].isExpanded = !stickMode
+        g.isCollapsed = !stickMode
         let screen = (NSScreen.main ?? NSScreen.screens[0]).visibleFrame
         g.originX = Double(screen.midX); g.topY = Double(screen.midY + 100)
         store.load(AppState(theme: .light, groups: [g]))
@@ -57,7 +60,9 @@ final class ScreenshotRunner {
         let panel = windows.controllers[g.id]!.panel
         let id = g.sticks[1].id
         NSLog("TOG before frame=%@", NSStringFromRect(panel.frame))
-        withAnimation(.easeInOut(duration: 0.2)) { store.setExpanded(true, stick: id) }
+        withAnimation(.easeInOut(duration: 0.2)) {
+            if stickMode { store.setExpanded(true, stick: id) } else { store.setCollapsed(false, space: g.id) }
+        }
         for i in 0..<12 {
             wait(0.03)
             NSLog("TOG t=%d frame=%@", i, NSStringFromRect(panel.frame))
@@ -126,9 +131,9 @@ final class ScreenshotRunner {
         }
 
         var editing = full()
-        editing.blocks[0] = Block(type: .auto, text: "Keep useful things close.\nIdeas, links, and commands\nin one place.")
+        editing.blocks[0] = Block(type: .text, text: "Keep useful things close.\nIdeas, links, and commands\nin one place.")
         var dev = full(); dev.name = "Dev"
-        dev.blocks = [Block(type: .code, text: "npm run dev"), Block(type: .auto, text: "https://localhost:3000"), Block(type: .auto, text: "api-token-1234", isMasked: true)]
+        dev.blocks = [Block(type: .text, text: "npm run dev"), Block(type: .link, text: "https://localhost:3000"), Block(type: .text, text: "api-token-1234", isMasked: true)]
         var a = newGroup([fullStick(), Stick(name: "Links"), Stick(name: "Personal")])
         var b = newGroup([editing, Stick(name: "Notes")])
         var c = newGroup([Stick(name: "Workspace", blocks: [Block(text: "https://github.com")]), Stick(name: "Links"), Stick(name: "Personal")])
@@ -180,7 +185,7 @@ final class ScreenshotRunner {
     func run() {
         let fullStick = full()
         var editing = full()
-        editing.blocks[0] = Block(type: .auto, text: "Keep useful things close.\nIdeas, links, and commands\nin one place.")
+        editing.blocks[0] = Block(type: .text, text: "Keep useful things close.\nIdeas, links, and commands\nin one place.")
         var empty = Stick(name: "Personal"); empty.isExpanded = true
         var multi = full()
         multi.blocks.append(Block(type: .text, text: "A hidden line", isHidden: true))

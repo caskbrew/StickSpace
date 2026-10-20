@@ -61,9 +61,9 @@ final class AppStore: ObservableObject {
     func seedIfNeeded() {
         guard state.groups.isEmpty else { return }
         var workspace = Stick(name: "Workspace", blocks: [
-            Block(type: .auto, text: "Keep useful things close."),
-            Block(type: .auto, text: "https://github.com"),
-            Block(type: .code, text: "npm run dev"),
+            Block(type: .text, text: "Keep useful things close."),
+            Block(type: .link, text: "https://github.com"),
+            Block(type: .text, text: "npm run dev"),
         ])
         workspace.isExpanded = true
         state.groups = [StickGroup(sticks: [workspace, Stick(name: "Links"), Stick(name: "Personal")], name: "Space")]
