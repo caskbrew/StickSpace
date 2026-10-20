@@ -196,7 +196,7 @@ struct ImportView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             AppCodeBox { JSONEditor(text: $text) }
-                .frame(height: 200)
+                .frame(minHeight: 80, maxHeight: .infinity)
                 .overlay(alignment: .topLeading) {
                     if text.isEmpty {
                         Text("Paste JSON").font(.system(size: 12)).foregroundStyle(.tertiary).padding(.leading, 44).padding(.top, 6)
@@ -269,8 +269,9 @@ struct ImportWindowView: View {
     let close: () -> Void
     @State private var tab: Tab
 
-    /// Both tabs are laid out in the same box, so switching never resizes the window.
-    static let contentHeight: CGFloat = 282
+    /// The window opens at this size and can be resized; the JSON box takes whatever room is left.
+    static let defaultSize = CGSize(width: 460, height: 344)
+    static let minSize = CGSize(width: 400, height: 320)
 
     @Environment(\.colorScheme) private var scheme
 
@@ -295,10 +296,10 @@ struct ImportWindowView: View {
                     GitImportView(store: store, sync: sync, targetSpace: space, close: close)
                 }
             }
-            .frame(height: Self.contentHeight, alignment: .top)
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         }
         .padding(14)
-        .frame(width: 460)
+        .frame(minWidth: Self.minSize.width, maxWidth: .infinity, minHeight: Self.minSize.height, maxHeight: .infinity)
         .foregroundStyle(Palette.text(scheme))
         .stickSurface(radius: 12)
     }

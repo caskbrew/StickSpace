@@ -336,7 +336,8 @@ final class HelperWindows: NSObject, NSWindowDelegate {
     /// Two tabs: pasted JSON, or a file in a Git repository.
     func showImport(group: UUID?, index: Int?, initialText: String = "", tab: ImportWindowView.Tab = .json) {
         guard let sync else { return }
-        presentApp("import") { close in
+        presentApp("import", size: NSSize(width: ImportWindowView.defaultSize.width, height: ImportWindowView.defaultSize.height),
+                   minSize: NSSize(width: ImportWindowView.minSize.width, height: ImportWindowView.minSize.height)) { close in
             ImportWindowView(store: self.store, sync: sync, space: group, visibleIndex: index, initialText: initialText, tab: tab, close: close)
         }
     }

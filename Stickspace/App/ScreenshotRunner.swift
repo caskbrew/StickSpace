@@ -254,6 +254,10 @@ final class ScreenshotRunner {
                 ("window-rename", "rename", { self.helpers.showRename(stick: stickID) }),
                 ("window-import-stick", "import", { self.helpers.showImport(group: gid, index: nil, initialText: oneJSON) }),
                 ("window-import-stack", "import", { self.helpers.showImport(group: nil, index: nil, initialText: multiJSON) }),
+                ("window-import-large", "import", {
+                    self.helpers.showImport(group: nil, index: nil, initialText: multiJSON)
+                    self.helpers.window("import")?.setContentSize(NSSize(width: 720, height: 560))
+                }),
                 ("window-import-empty", "import", { self.helpers.showImport(group: nil, index: nil) }),
                 ("window-import-error", "import", { self.helpers.showImport(group: nil, index: nil, initialText: "{\n  \"sticks\": [\n    { oops }\n  ]\n}") }),
                 ("window-import-git-space", "import", { self.helpers.showImport(group: nil, index: nil, tab: .git) }),
