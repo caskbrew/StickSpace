@@ -80,6 +80,8 @@ struct Stick: Identifiable, Equatable {
     var blocks: [Block] = []
     var isHidden = false
     var isExpanded = false
+    /// Set when the group comes from a Git repository; nil for a custom group.
+    var origin: GroupOrigin?
 
     /// Links for "open all": visible, non-sensitive, in section order, duplicates removed.
     var openableLinks: [URL] {
@@ -110,6 +112,8 @@ struct StickGroup: Identifiable, Equatable {
     var isCollapsed = false
     /// Only one group may be open at a time: opening one closes the others.
     var isExclusive = false
+    /// Set when the space was imported from a space file in Git.
+    var source: GitSource?
 
     var visibleSticks: [Stick] { sticks.filter { !$0.isHidden } }
     /// The header keeps an empty space reachable, so a window exists for every shown space.

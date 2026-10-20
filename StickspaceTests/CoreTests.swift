@@ -324,6 +324,42 @@ final class StoreTests: XCTestCase {
         XCTAssertEqual(store.state.groups[0].width, SpaceWidth.range.upperBound)
     }
 
+    func testGitOriginAndSourceSurvivePersistence() throws {
+        let src = GitSource(url: "git@gitlab.example.com:team/links.git", path: "platform/stickspace.json", ref: "main",
+                            sshKey: "/Users/a/.ssh/team", directPush: true, appliedHead: "abc123")
+        let base = GroupSnapshot(id: UUID(), name: "Grafana", blocks: [Block(type: .link, text: "https://a.com", title: "A", tags: ["prod"])])
+        var stick = Stick(id: base.id, name: "Grafana", blocks: base.blocks)
+        stick.origin = GroupOrigin(source: nil, file: "groups/grafana.json", base: base)
+        var single = Stick(name: "One", blocks: [])
+        single.origin = GroupOrigin(source: GitSource(url: "u", path: "g.json"), file: "g.json",
+                                    base: GroupSnapshot(id: single.id, name: "One", blocks: []))
+        var space = StickGroup(sticks: [stick, single], name: "Platform")
+        space.source = src
+        let back = try StateCodec.decode(StateCodec.encode(AppState(theme: .system, groups: [space])))
+        XCTAssertEqual(back.groups[0], space)
+        XCTAssertEqual(back.groups[0].sticks[0].origin?.base.blocks[0].title, "A")
+        XCTAssertNil(try StateCodec.decode(StateCodec.encode(AppState(theme: .system, groups: [StickGroup(sticks: [Stick(name: "x")])]))).groups[0].sticks[0].origin)
+    }
+
+    func testModifiedAndLocalOnlyDetection() {
+        let shared = Block(type: .text, text: "kubectl get pods")
+        let base = GroupSnapshot(id: UUID(), name: "Ops", blocks: [shared])
+        var g = Stick(id: base.id, name: "Ops", blocks: [shared])
+        g.origin = GroupOrigin(source: nil, file: nil, base: base)
+        XCTAssertFalse(g.isModified)
+        g.isExpanded = true; g.isHidden = true; g.blocks[0].isMasked = true   // local flags are not changes
+        XCTAssertFalse(g.isModified)
+        let secret = Block(type: .text, text: "hunter2", isMasked: true)
+        g.blocks.append(secret)
+        XCTAssertTrue(g.isLocalOnly(secret))
+        XCTAssertFalse(g.isLocalOnly(g.blocks[0]), "a shared entity that is masked keeps syncing")
+        XCTAssertFalse(g.isModified, "a local-only entity is not a change")
+        XCTAssertEqual(g.sharedBlocks.map(\.id), [shared.id])
+        g.blocks[0].text = "kubectl get nodes"
+        XCTAssertTrue(g.isModified)
+        XCTAssertFalse(Stick(name: "custom").isModified)
+    }
+
     func testTitleAndTagsRoundTripThroughPersistenceAndJSON() throws {
         let b = Block(type: .link, text: "https://grafana.example.com/d/abc?var-env=prod", title: "Grafana", tags: ["prod", "Prod", " eu "])
         XCTAssertEqual(Tags.clean(b.tags), ["prod", "eu"])
