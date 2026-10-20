@@ -19,7 +19,7 @@ Sticky snippets for the macOS menu bar: keep texts, links, commands and secrets 
 
 - **Copy** any entity with one click (exact text, nothing added).
 - **Links**: an entity that is a full http(s) address gets an open button. Click opens the browser; **⌘-click opens it in the background** and keeps Stickspace active. The arrow in a group's title opens all its visible links at once, de-duplicated.
-- **Mask Content**: hide secrets on screen with `••••••••`; reveal temporarily with the eye; copy works without revealing. Masking is visual only, nothing is encrypted.
+- **Mask**: hide secrets on screen with `••••••••`; reveal temporarily with the eye; copy works without revealing. Masking is visual only, nothing is encrypted.
 - **Pin** a space (the pin is in its header) to lock its window in place (pinned windows cannot be dragged away).
 - **Double-click** a group's title to expand or collapse; double-click the space header to fold all groups. **Drag** to reorder groups and entities. Double-click an entity to edit it inline (Auto / Text / Link / Code).
 - **Titles and tags**: an entity can have a title shown instead of a long text or link, and tags such as `prod`, `stg`, `dev` shown as coloured chips.

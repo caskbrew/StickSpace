@@ -266,14 +266,6 @@ struct StickView: View {
             .accessibilityAction(named: "Move down") { move(by: 1) }
             .accessibilityAction(named: "Show menu") { showMenu() }
 
-            if showsHidden {
-                IconButton(symbol: stick.isHidden ? "eye.slash.circle" : "eye.circle",
-                           label: stick.isHidden ? "Show group" : "Hide group",
-                           help: stick.isHidden ? "Hidden: click to show this group" : "Click to hide this group",
-                           tint: stick.isHidden ? Palette.blue : nil) {
-                    store.setHidden(!stick.isHidden, stick: stick.id)
-                }
-            }
             if stick.isExpanded && hovering && !stick.isHidden {
                 IconButton(symbol: "plus", label: "Add entity", help: "Add entity") {
                     NSApp.activate(ignoringOtherApps: true)
@@ -305,15 +297,15 @@ struct StickView: View {
         let menu = NSMenu()
         menu.autoenablesItems = false
         menu.addAction("Rename") { actions.rename(stick.id) }
-        menu.addAction(stick.isHidden ? "Show Group" : "Hide Group") { store.setHidden(!stick.isHidden, stick: stick.id) }
+        menu.addAction("Hide", checked: stick.isHidden) { store.setHidden(!stick.isHidden, stick: stick.id) }
         menu.addItem(.separator())
         menu.addAction("Add Group Above") { actions.newStick(groupID, visibleIndex) }
         menu.addAction("Add Group Below") { actions.newStick(groupID, visibleIndex + 1) }
         menu.addItem(.separator())
         menu.addAction("Import Group") { actions.importInto(groupID, visibleIndex + 1) }
-        menu.addAction("Export Group") { actions.export(stick.id) }
+        menu.addAction("Export") { actions.export(stick.id) }
         menu.addItem(.separator())
-        menu.addAction("Delete Group", destructive: true) { store.deleteStick(stick.id) }
+        menu.addAction("Delete", destructive: true) { store.deleteStick(stick.id) }
         menu.popUpAtCurrentEvent()
     }
 
@@ -526,10 +518,10 @@ struct SpaceHeader: View {
         menu.addAction("Actual Size", key: "0", enabled: space.zoom != 1) { store.resetZoom(group: space.id) }
         menu.addItem(.separator())
         menu.addAction("Import Group") { actions.importInto(space.id, nil) }
-        menu.addAction("Export Space") { actions.exportSpace(space.id) }
+        menu.addAction("Export") { actions.exportSpace(space.id) }
         menu.addItem(.separator())
-        menu.addAction("Hide Space") { store.setGroupHidden(true, group: space.id) }
-        menu.addAction("Delete Space", destructive: true) { store.deleteSpace(space.id) }
+        menu.addAction("Close") { store.setGroupHidden(true, group: space.id) }
+        menu.addAction("Delete", destructive: true) { store.deleteSpace(space.id) }
         menu.popUpAtCurrentEvent()
     }
 }
@@ -690,12 +682,6 @@ struct BlockRow: View {
 
     private var actions: some View {
         HStack(spacing: 0) {
-            if showsHidden {
-                IconButton(symbol: block.isHidden ? "eye.slash.circle" : "eye.circle",
-                           label: block.isHidden ? "Show entity" : "Hide entity",
-                           help: block.isHidden ? "Hidden: click to show this entity" : "Click to hide this entity",
-                           tint: block.isHidden ? Palette.blue : nil) { store.setHidden(!block.isHidden, block: block.id) }
-            }
             if block.isMasked {
                 IconButton(symbol: revealed ? "eye.slash" : "eye",
                            label: revealed ? "Hide content" : "Reveal content") { store.toggleReveal(block.id) }
@@ -753,10 +739,10 @@ struct BlockRow: View {
         menu.addAction("Move Up", enabled: canMove(-1)) { move(-1) }
         menu.addAction("Move Down", enabled: canMove(1)) { move(1) }
         menu.addItem(.separator())
-        menu.addAction(block.isHidden ? "Show Entity" : "Hide Entity") { store.setHidden(!block.isHidden, block: block.id) }
-        menu.addAction("Mask Content", checked: block.isMasked) { store.setMasked(!block.isMasked, block: block.id) }
+        menu.addAction("Hide", checked: block.isHidden) { store.setHidden(!block.isHidden, block: block.id) }
+        menu.addAction("Mask", checked: block.isMasked) { store.setMasked(!block.isMasked, block: block.id) }
         menu.addItem(.separator())
-        menu.addAction("Delete Entity", destructive: true) { store.deleteBlock(block.id) }
+        menu.addAction("Delete", destructive: true) { store.deleteBlock(block.id) }
         return menu
     }
 
