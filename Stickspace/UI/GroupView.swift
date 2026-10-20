@@ -81,6 +81,9 @@ struct GroupView: View {
         .animation(anim, value: order)
         .coordinateSpace(name: "group")
         .onPreferenceChange(FramesKey.self) { frames = $0 }
+        // Clipped like a group's rows, so folding the space reveals/hides them the way expanding a group does.
+        // The mask grows while a group is dragged so the lifted one is never cut off.
+        .mask { Rectangle().padding(drag == nil ? 0 : -80 * z) }
 
         let content = VStack(spacing: Metrics.gap * z) {
             SpaceHeader(store: store, space: g, actions: actions, onToggle: { toggleSpace(g) })
@@ -93,7 +96,7 @@ struct GroupView: View {
                 }
             }
         }
-        .frame(width: Metrics.width * z)
+        .frame(width: CGFloat(g.width) * z)
         .environment(\.zoom, z)
         .fixedSize(horizontal: false, vertical: true)
         .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { onHeight($0) }
@@ -451,18 +454,18 @@ struct SpaceHeader: View {
         HStack(spacing: 0) {
             HStack(spacing: 0) {
                 Image(systemName: "chevron.right")
-                    .font(.system(size: 11 * z, weight: .semibold))
+                    .font(.system(size: 10 * z, weight: .semibold))
                     .foregroundStyle(Palette.icon(scheme))
                     .rotationEffect(.degrees(space.isCollapsed ? 0 : 90))
                     .frame(width: 22 * z)
                 Text(space.name)
-                    .font(.system(size: 13 * z, weight: .semibold))
+                    .font(.system(size: 12 * z, weight: .semibold))
                     .lineLimit(1)
                     .truncationMode(.tail)
                 Spacer(minLength: 0)
             }
             .frame(maxWidth: .infinity, alignment: .leading)
-            .frame(height: Metrics.headerHeight * z)
+            .frame(height: Metrics.spaceHeaderHeight * z)
             .contentShape(Rectangle())
             .overlay(DragClickArea(canDrag: !space.isPinned, doubleClickOnly: true, onClick: onToggle, onContextMenu: showMenu))
             .help("Double-click to show or hide groups")
@@ -487,7 +490,7 @@ struct SpaceHeader: View {
             }
         }
         .padding(.horizontal, 4 * z)
-        .frame(height: Metrics.headerHeight * z)
+        .frame(height: Metrics.spaceHeaderHeight * z)
         .foregroundStyle(Palette.text(scheme))
         .stickSurface()
         .onHover { hovering = $0 }
@@ -751,12 +754,14 @@ struct BlockRow: View {
                     .padding(.vertical, 4 * z)
                     .background(RoundedRectangle(cornerRadius: 5 * z).fill(scheme == .dark ? Color.black.opacity(0.25) : Color.white.opacity(0.9)))
                     .overlay(RoundedRectangle(cornerRadius: 5 * z).strokeBorder(Palette.blue, lineWidth: 1.5))
-                editorField("Title (shown instead of the text)",
+                editorField("Title",
                             text: Binding(get: { store.block(block.id)?.title ?? "" }, set: { store.setTitle($0, block: block.id) }))
-                editorField("Tags: prod, stg, dev…", text: $tagsText)
+                editorField("Tags", text: $tagsText)
                     .onChange(of: tagsText) { _, new in store.setTags(Tags.parse(new), block: block.id) }
                 tagSuggestions
                 HStack(alignment: .center, spacing: 6 * z) {
+                    typePicker
+                    Spacer(minLength: 0)
                     Button { store.deleteBlock(block.id) } label: {
                         Image(systemName: "trash")
                             .font(.system(size: 10.5 * z))
@@ -768,8 +773,6 @@ struct BlockRow: View {
                     .buttonStyle(.plain)
                     .help("Delete this entity (undo with ⌘Z)")
                     .accessibilityLabel("Delete entity")
-                    typePicker
-                    Spacer(minLength: 0)
                     Button { store.editingBlock = nil } label: {
                         Text("Done")
                             .font(.system(size: 11 * z, weight: .medium))
@@ -799,12 +802,10 @@ struct BlockRow: View {
             .overlay(RoundedRectangle(cornerRadius: 5 * z).strokeBorder(Palette.separator(scheme).opacity(2), lineWidth: 0.5))
     }
 
-    /// Tags already in use (plus prod / stg / dev) that this entity does not have yet: one click adds them.
+    /// Tags already in use that this entity does not have yet: one click adds them.
     @ViewBuilder private var tagSuggestions: some View {
         let have = Set(block.tags.map { $0.lowercased() })
-        let options = Array((store.knownTags + ["prod", "stg", "dev"]).reduce(into: [String]()) { list, tag in
-            if !list.contains(where: { $0.lowercased() == tag.lowercased() }) { list.append(tag) }
-        }.filter { !have.contains($0.lowercased()) }.prefix(6))
+        let options = Array(store.knownTags.filter { !have.contains($0.lowercased()) }.prefix(6))
         if !options.isEmpty {
             HStack(spacing: 4 * z) {
                 ForEach(options, id: \.self) { tag in

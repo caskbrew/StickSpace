@@ -19,6 +19,7 @@ enum Metrics {
     /// Extra transparent margin around the window while a stick is dragged.
     static let dragMargin: CGFloat = 60
     static let headerHeight: CGFloat = 26
+    static let spaceHeaderHeight: CGFloat = 22
     static let rowHeight: CGFloat = 28
     static let radius: CGFloat = 9
 }

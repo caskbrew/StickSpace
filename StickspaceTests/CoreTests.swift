@@ -240,9 +240,15 @@ final class StoreTests: XCTestCase {
     func testSpaceNameAndCollapseSurvivePersistence() throws {
         var g = StickGroup(sticks: [Stick(name: "A")], name: "Prod ops")
         g.isCollapsed = true
+        g.width = 500
         let back = try StateCodec.decode(StateCodec.encode(AppState(theme: .system, groups: [g])))
         XCTAssertEqual(back.groups[0].name, "Prod ops")
         XCTAssertTrue(back.groups[0].isCollapsed)
+        XCTAssertEqual(back.groups[0].width, 500)
+        let store = AppStore()
+        store.state = back
+        store.setWidth(5000, space: back.groups[0].id)
+        XCTAssertEqual(store.state.groups[0].width, SpaceWidth.range.upperBound)
     }
 
     func testTitleAndTagsRoundTripThroughPersistenceAndJSON() throws {

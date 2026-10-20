@@ -53,6 +53,8 @@ final class GroupWindowController: NSObject, NSWindowDelegate {
     private var margin = CGSize.zero
     private weak var container: TopPinnedContainer?
     private var zoom: CGFloat
+    /// Content width at 100% zoom; the user can drag the window edge to change it.
+    private var unitWidth: CGFloat
     private var measuredHeight: CGFloat = 0
     private var shrinkDeadline: Date?
     private var settleTimer: Timer?
@@ -64,8 +66,9 @@ final class GroupWindowController: NSObject, NSWindowDelegate {
         self.groupID = group.id
         self.store = store
         self.zoom = CGFloat(group.zoom)
+        self.unitWidth = CGFloat(group.width)
 
-        let width = Metrics.width * zoom
+        let width = unitWidth * zoom
         let height: CGFloat = 80
         let screens = NSScreen.screens.map(\.visibleFrame)
         var frame: NSRect
@@ -79,7 +82,7 @@ final class GroupWindowController: NSObject, NSWindowDelegate {
         anchorTop = frame.maxY
         contentX = frame.minX
 
-        panel = GroupPanel(contentRect: frame, styleMask: [.borderless], backing: .buffered, defer: false)
+        panel = GroupPanel(contentRect: frame, styleMask: [.borderless, .resizable], backing: .buffered, defer: false)
         super.init()
 
         panel.keyHandler = { [groupID] in keyHandler(groupID, $0) }
@@ -114,8 +117,9 @@ final class GroupWindowController: NSObject, NSWindowDelegate {
         kick()
         panel.title = group.name
         zoom = CGFloat(group.zoom)
-        let width = Metrics.width * zoom
-        if abs(panel.frame.width - width) > 0.5 {
+        unitWidth = CGFloat(group.width)
+        let width = unitWidth * zoom
+        if abs(panel.frame.width - width - 2 * margin.width) > 0.5 {
             panel.setFrame(NSRect(x: contentX - margin.width, y: anchorTop - contentHeight - margin.height,
                                   width: width + 2 * margin.width, height: contentHeight + 2 * margin.height), display: true)
             panel.invalidateShadow()
@@ -178,7 +182,7 @@ final class GroupWindowController: NSObject, NSWindowDelegate {
             shrinkDeadline = nil
         }
         let frame = NSRect(x: contentX - margin.width, y: anchorTop - height - margin.height,
-                           width: Metrics.width * zoom + 2 * margin.width, height: height + 2 * margin.height)
+                           width: unitWidth * zoom + 2 * margin.width, height: height + 2 * margin.height)
         contentHeight = height
         guard frame != panel.frame else { return }
         // No implicit Core Animation on the resize: it slides the old layer contents (the "jump") before the redraw lands.
@@ -201,6 +205,22 @@ final class GroupWindowController: NSObject, NSWindowDelegate {
         let work = DispatchWorkItem { [weak self] in self?.persistFrame() }
         persistWork = work
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.3, execute: work)
+    }
+
+    /// Edge-dragging changes the width only (the height always follows the content), and never while pinned.
+    func windowWillResize(_ sender: NSWindow, to frameSize: NSSize) -> NSSize {
+        if store.state.groups.first(where: { $0.id == groupID })?.isPinned == true { return sender.frame.size }
+        let w = min(max(frameSize.width - 2 * margin.width, CGFloat(SpaceWidth.range.lowerBound) * zoom),
+                    CGFloat(SpaceWidth.range.upperBound) * zoom)
+        return NSSize(width: w + 2 * margin.width, height: sender.frame.height)
+    }
+
+    func windowDidResize(_ notification: Notification) {
+        let w = (panel.frame.width - 2 * margin.width) / zoom
+        guard abs(w - unitWidth) > 0.5 else { return }
+        unitWidth = w
+        contentX = panel.frame.minX + margin.width
+        store.setWidth(Double(w), space: groupID)
     }
 
     func windowDidBecomeKey(_ notification: Notification) { store.activeGroupID = groupID }

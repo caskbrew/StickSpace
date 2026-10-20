@@ -99,6 +99,8 @@ struct StickGroup: Identifiable, Equatable {
     var originX: Double?
     var topY: Double?
     var name = "Space"
+    /// Window width at 100% zoom.
+    var width = SpaceWidth.standard
     /// Collapsed to its header row only.
     var isCollapsed = false
 
@@ -111,6 +113,12 @@ struct AppState: Equatable {
     static let currentVersion = 1
     var theme: ThemeChoice = .system
     var groups: [StickGroup] = []
+}
+
+enum SpaceWidth {
+    static let standard = 320.0
+    static let range = 240.0...800.0
+    static func clamp(_ w: Double) -> Double { min(max(w, range.lowerBound), range.upperBound) }
 }
 
 enum Zoom {

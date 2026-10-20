@@ -85,6 +85,12 @@ final class AppStore: ObservableObject {
         state.groups[g].name = trimmed
     }
 
+    func setWidth(_ width: Double, space id: UUID) {
+        guard let g = groupIndex(id) else { return }
+        let w = SpaceWidth.clamp(width.rounded())
+        if state.groups[g].width != w { state.groups[g].width = w }
+    }
+
     func setCollapsed(_ collapsed: Bool, space id: UUID) {
         guard let g = groupIndex(id) else { return }
         state.groups[g].isCollapsed = collapsed
