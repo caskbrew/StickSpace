@@ -18,10 +18,22 @@ The binding has three values:
 | | |
 |---|---|
 | `url`  | the repository, e.g. `git@gitlab.example.com:platform/infra-links.git` |
-| `path` | the space file inside it, e.g. `platform/stickspace.json` |
+| `path` | the space file (or a group file) inside it, e.g. `platform/stickspace.json` |
 | `ref`  | a branch to follow and push to, or a tag to pin a version (read-only) |
 
 Paths in `{ "file": … }` are relative to the space file and must stay inside the repository.
+
+## What can be imported
+
+Two things, each pointing at one path in the repository:
+
+| import | `path` points to | result |
+|---|---|---|
+| **Space** | a space file (`platform/stickspace.json`) | a new space with all its groups. Groups added to the file later appear on sync; removed ones disappear |
+| **File** | a group file (`platform/groups/grafana.json`) | one group, added to a space you already have |
+
+There is no "one inline group out of a space file": if you do not want a group from an imported space, **Hide**
+it (a local choice, nothing is pushed). Hidden groups stay hidden when the file is synced again.
 
 ---
 
