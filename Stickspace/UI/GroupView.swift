@@ -524,9 +524,11 @@ struct SpaceHeader: View {
             store.setShowingHidden(!showing, space: space.id)
         }
         menu.addItem(.separator())
-        menu.addAction("Zoom In", key: "+", enabled: space.zoom < Zoom.steps.last!) { store.zoomIn(group: space.id) }
-        menu.addAction("Zoom Out", key: "-", enabled: space.zoom > Zoom.steps.first!) { store.zoomOut(group: space.id) }
-        menu.addAction("Actual Size", key: "0", enabled: space.zoom != 1) { store.resetZoom(group: space.id) }
+        // Each item names the zoom it switches to.
+        func percent(_ z: Double) -> String { "Zoom \(Int((z * 100).rounded()))%" }
+        menu.addAction(percent(Zoom.previous(space.zoom)), key: "-", enabled: space.zoom > Zoom.steps.first!) { store.zoomOut(group: space.id) }
+        menu.addAction(percent(Zoom.next(space.zoom)), key: "+", enabled: space.zoom < Zoom.steps.last!) { store.zoomIn(group: space.id) }
+        menu.addAction("Zoom 100%", key: "0", enabled: space.zoom != 1) { store.resetZoom(group: space.id) }
         menu.addItem(.separator())
         menu.addAction("Delete", destructive: true) { store.deleteSpace(space.id) }
         menu.addAction("Close") { store.setGroupHidden(true, group: space.id) }
