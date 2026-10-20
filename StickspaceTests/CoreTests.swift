@@ -96,8 +96,8 @@ final class InterchangeTests: XCTestCase {
         let json = Interchange.export([sticks[0]], asSingle: true, includeSensitive: false)
         let object = try XCTUnwrap(JSONSerialization.jsonObject(with: Data(json.utf8)) as? [String: Any])
         XCTAssertEqual(object["name"] as? String, "Links")
-        XCTAssertEqual(object["version"] as? Int, 1)
-        XCTAssertNil(object["sticks"])
+        XCTAssertEqual(object["version"] as? Int, 2)
+        XCTAssertNil(object["groups"])
         XCTAssertEqual(try Interchange.parse(json).count, 1)
     }
 
@@ -118,7 +118,7 @@ final class InterchangeTests: XCTestCase {
         let cases = [
             "",
             "42",
-            #"{"version": 2, "sticks": []}"#,
+            #"{"version": 3, "groups": []}"#,
             #"{"version": "1", "sticks": []}"#,
             #"{"sticks": {}}"#,
             #"{"sticks": []}"#,
@@ -143,6 +143,73 @@ final class InterchangeTests: XCTestCase {
         XCTAssertEqual(sticks.count, before.groups[0].sticks.count * 2)
         XCTAssertEqual(Set(sticks.map(\.id)).count, sticks.count, "imported sticks get fresh ids")
         XCTAssertEqual(Array(sticks.prefix(before.groups[0].sticks.count)), before.groups[0].sticks)
+    }
+}
+
+final class FormatV2Tests: XCTestCase {
+    private let a = Block(id: UUID(), type: .link, text: "https://grafana.example.com/d/1", title: "Grafana", tags: ["prod"])
+    private let b = Block(id: UUID(), type: .text, text: "kubectl get pods", title: "", tags: [])
+    private var group: Stick { Stick(id: UUID(), name: "Ops", blocks: [a, b]) }
+
+    func testGroupFileRoundTripKeepsIdsAndSharedFieldsOnly() throws {
+        var g = group
+        g.blocks[1].isHidden = true
+        g.blocks[0].isMasked = true
+        let text = Interchange.encodeGroupFile(g)
+        XCTAssertFalse(text.contains("masked"))
+        XCTAssertFalse(text.contains("hidden"))
+        let back = try Interchange.decodeGroupFile(text)
+        XCTAssertEqual(back.id, g.id)
+        XCTAssertEqual(back.blocks.map(\.id), g.blocks.map(\.id))
+        XCTAssertEqual(back.blocks[0].title, "Grafana")
+        XCTAssertEqual(back.blocks[0].tags, ["prod"])
+        XCTAssertEqual(back.blocks[0].type, .link)
+        XCTAssertFalse(back.blocks[1].isHidden)
+        XCTAssertEqual(Interchange.encodeGroupFile(back), Interchange.encodeGroupFile(back), "stable output")
+    }
+
+    func testSpaceFileHoldsInlineGroupsAndFileReferencesInOrder() throws {
+        let inline = group
+        let text = Interchange.encodeSpaceFile(name: "Platform", entries: [.file("groups/a.json"), .inline(inline), .file("b.json")])
+        let back = try Interchange.decodeSpaceFile(text)
+        XCTAssertEqual(back.name, "Platform")
+        XCTAssertEqual(back.entries.count, 3)
+        XCTAssertEqual(back.entries[0], .file("groups/a.json"))
+        guard case .inline(let g) = back.entries[1] else { return XCTFail("inline expected") }
+        XCTAssertEqual(g.id, inline.id)
+        XCTAssertEqual(back.entries[2], .file("b.json"))
+    }
+
+    func testFileReferencesMustStayInsideTheRepository() {
+        for path in ["/etc/passwd", "../x.json", "a/../../x.json", "a//b.json", "", "a\\b.json"] {
+            let text = #"{"version":2,"name":"S","groups":[{"file":"\#(path.replacingOccurrences(of: "\\", with: "\\\\"))"}]}"#
+            XCTAssertThrowsError(try Interchange.decodeSpaceFile(text), path)
+        }
+        XCTAssertTrue(Interchange.isSafeRelative("groups/a.json"))
+    }
+
+    func testVersionOneFilesAreStillRead() throws {
+        let v1 = #"{"version":1,"name":"Old","sticks":[{"name":"G","sections":[{"type":"auto","text":"https://a.com"},{"type":"code","text":"ls"}]}]}"#
+        let sticks = try Interchange.parse(v1)
+        XCTAssertEqual(sticks[0].blocks.map(\.type), [.link, .text])
+        XCTAssertEqual(Interchange.spaceName(in: v1), "Old")
+    }
+
+    func testPastingASpaceWithFileReferencesIsRefused() {
+        XCTAssertThrowsError(try Interchange.parse(#"{"version":2,"name":"S","groups":[{"file":"a.json"}]}"#))
+    }
+
+    func testBadIdsAndDuplicateEntityIdsAreRejected() {
+        XCTAssertThrowsError(try Interchange.decodeGroupFile(#"{"version":2,"id":"nope","name":"G","entities":[]}"#))
+        let id = UUID().uuidString
+        XCTAssertThrowsError(try Interchange.decodeGroupFile(
+            #"{"version":2,"name":"G","entities":[{"id":"\#(id)","text":"a"},{"id":"\#(id)","text":"b"}]}"#))
+    }
+
+    func testMissingIdsAreGeneratedAndMissingTypeIsDetected() throws {
+        let g = try Interchange.decodeGroupFile(#"{"version":2,"name":"G","entities":[{"text":"https://a.com"},{"text":"hello"}]}"#)
+        XCTAssertEqual(Set(g.blocks.map(\.id)).count, 2)
+        XCTAssertEqual(g.blocks.map(\.type), [.link, .text])
     }
 }
 
