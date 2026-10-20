@@ -108,6 +108,8 @@ struct StickGroup: Identifiable, Equatable {
     var width = SpaceWidth.standard
     /// Collapsed to its header row only.
     var isCollapsed = false
+    /// Only one group may be open at a time: opening one closes the others.
+    var isExclusive = false
 
     var visibleSticks: [Stick] { sticks.filter { !$0.isHidden } }
     /// The header keeps an empty space reachable, so a window exists for every shown space.

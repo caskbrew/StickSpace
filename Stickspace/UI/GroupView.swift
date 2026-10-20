@@ -302,7 +302,7 @@ struct StickView: View {
         menu.addAction("Add Group Above") { actions.newStick(groupID, visibleIndex) }
         menu.addAction("Add Group Below") { actions.newStick(groupID, visibleIndex + 1) }
         menu.addItem(.separator())
-        menu.addAction("Import Group") { actions.importInto(groupID, visibleIndex + 1) }
+        menu.addAction("Import") { actions.importInto(groupID, visibleIndex + 1) }
         menu.addAction("Export") { actions.export(stick.id) }
         menu.addItem(.separator())
         menu.addAction("Delete", destructive: true) { store.deleteStick(stick.id) }
@@ -498,6 +498,10 @@ struct SpaceHeader: View {
         menu.autoenablesItems = false
         menu.addAction("Rename") { actions.renameSpace(space.id) }
         menu.addAction("Add Group") { actions.newStick(space.id, nil) }
+        menu.addAction("Import Group") { actions.importInto(space.id, nil) }
+        menu.addAction("Export") { actions.exportSpace(space.id) }
+        menu.addItem(.separator())
+        menu.addAction("One at a Time", checked: space.isExclusive) { store.setExclusive(!space.isExclusive, space: space.id) }
         let showing = store.showingHidden.contains(space.id)
         menu.addAction("Hidden", checked: showing, enabled: showing || store.hiddenCount(space: space.id) > 0) {
             store.setShowingHidden(!showing, space: space.id)
@@ -506,9 +510,6 @@ struct SpaceHeader: View {
         menu.addAction("Zoom In", key: "+", enabled: space.zoom < Zoom.steps.last!) { store.zoomIn(group: space.id) }
         menu.addAction("Zoom Out", key: "-", enabled: space.zoom > Zoom.steps.first!) { store.zoomOut(group: space.id) }
         menu.addAction("Actual Size", key: "0", enabled: space.zoom != 1) { store.resetZoom(group: space.id) }
-        menu.addItem(.separator())
-        menu.addAction("Import Group") { actions.importInto(space.id, nil) }
-        menu.addAction("Export") { actions.exportSpace(space.id) }
         menu.addItem(.separator())
         menu.addAction("Close") { store.setGroupHidden(true, group: space.id) }
         menu.addAction("Delete", destructive: true) { store.deleteSpace(space.id) }

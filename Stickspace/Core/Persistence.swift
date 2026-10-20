@@ -34,6 +34,7 @@ private struct PGroup: Codable {
     var name: String?
     var width: Double?
     var collapsed: Bool?
+    var exclusive: Bool?
     var sticks: [PStick]
 }
 
@@ -47,7 +48,7 @@ enum StateCodec {
     static func encode(_ state: AppState) throws -> Data {
         let groups: [PGroup] = state.groups.map { g in
             PGroup(id: g.id, pinned: g.isPinned, hidden: g.isHidden ? true : nil, zoom: g.zoom, originX: g.originX, topY: g.topY,
-                   name: g.name, width: g.width, collapsed: g.isCollapsed ? true : nil,
+                   name: g.name, width: g.width, collapsed: g.isCollapsed ? true : nil, exclusive: g.isExclusive ? true : nil,
                    sticks: g.sticks.map { s in
                 PStick(id: s.id, name: s.name, hidden: s.isHidden, expanded: s.isExpanded,
                        blocks: s.blocks.map { b in
@@ -77,7 +78,7 @@ enum StateCodec {
                        originX: g.originX, topY: g.topY,
                        // Files from before spaces had names: use the old joined title.
                        name: g.name ?? (g.sticks.isEmpty ? "Space" : g.sticks.map(\.name).joined(separator: " · ")),
-                       width: SpaceWidth.clamp(g.width ?? SpaceWidth.standard), isCollapsed: g.collapsed ?? false)
+                       width: SpaceWidth.clamp(g.width ?? SpaceWidth.standard), isCollapsed: g.collapsed ?? false, isExclusive: g.exclusive ?? false)
         }
         return state
     }

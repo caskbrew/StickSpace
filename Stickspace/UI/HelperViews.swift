@@ -269,7 +269,7 @@ struct AboutView: View {
         Topic(title: "Getting Started", symbol: "questionmark.circle", bullets: [
             "An entity holds one piece of text. Entities form a group, and groups form a space: one window.",
             "The space header is always on top. Double-click it to fold the groups away or bring them back.",
-            "Double-click a group's title to expand or collapse it. Several can stay open.",
+            "Double-click a group's title to expand or collapse it. Several can stay open; tick One at a Time in the space's header menu to keep just one open.",
             "Double-click an entity to edit it. Esc or ⌘↩ finishes; text is saved as you type.",
             "Drag the dotted grip to reorder groups; drag an entity up or down to reorder entities within its group.",
             "Drag the space header or a group's title row to move the whole window (not while it is pinned).",
@@ -300,8 +300,8 @@ struct AboutView: View {
             "Pinning never takes keyboard focus.",
         ]),
         Topic(title: "Context Menus", symbol: "contextualmenu.and.cursorarrow", bullets: [
-            "Right-click the space header for Rename, Add Group, Hidden, zoom, Import Group, Export, Close and Delete.",
-            "Right-click a group for Rename, Hide, Add Group Above/Below, Import Group, Export and Delete.",
+            "Right-click the space header for Rename, Add Group, Import Group, Export, One at a Time, Hidden, zoom, Close and Delete.",
+            "Right-click a group for Rename, Hide, Add Group Above/Below, Import, Export and Delete.",
             "Right-click an entity for Move Up/Down, Hide, Mask and Delete. Editing is a double-click; copying is its button.",
             "Close hides the whole window; bring it back from the menu bar.",
             "Link buttons: click opens in the browser; ⌘-click opens in the background so Stickspace stays active.",

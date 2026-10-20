@@ -381,6 +381,26 @@ final class StoreTests: XCTestCase {
         XCTAssertEqual(s.state.groups[0].sticks.count, 1)
     }
 
+    func testOneAtATimeClosesTheOtherGroups() {
+        let s = AppStore()
+        let id = s.addSpace(name: "S", groups: [Stick(name: "A", isExpanded: true), Stick(name: "B", isExpanded: true), Stick(name: "C")])
+        let sticks = { s.state.groups[0].sticks }
+        s.setExclusive(true, space: id)
+        XCTAssertEqual(sticks().map(\.isExpanded), [true, false, false])
+        s.setExpanded(true, stick: sticks()[2].id)
+        XCTAssertEqual(sticks().map(\.isExpanded), [false, false, true])
+        s.setExpanded(false, stick: sticks()[2].id)
+        XCTAssertEqual(sticks().map(\.isExpanded), [false, false, false])
+        let added = s.addStick(name: "D", group: id).stick
+        s.setExpanded(true, stick: sticks()[0].id)
+        XCTAssertEqual(sticks().filter(\.isExpanded).map(\.name), ["A"])
+        XCTAssertFalse(s.stick(added)!.isExpanded)
+        s.setExclusive(false, space: id)
+        s.setExpanded(true, stick: added)
+        XCTAssertEqual(sticks().filter(\.isExpanded).count, 2)
+        XCTAssertTrue(try StateCodec.decode(StateCodec.encode(AppState(theme: .system, groups: [StickGroup(isExclusive: true)]))).groups[0].isExclusive)
+    }
+
     func testReorderWithHiddenItemsListed() {
         let s = AppStore()
         let blocks = [Block(text: "1"), Block(text: "H", isHidden: true), Block(text: "2")]

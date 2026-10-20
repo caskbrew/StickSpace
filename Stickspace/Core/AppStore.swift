@@ -166,7 +166,9 @@ final class AppStore: ObservableObject {
     func addStick(name: String, group id: UUID?, atVisible index: Int? = nil) -> (group: UUID, stick: UUID) {
         var stick = Stick(name: name)
         stick.isExpanded = true
-        return insert([stick], group: id, atVisible: index).first.map { (groupOf($0), $0) } ?? (UUID(), stick.id)
+        let result = insert([stick], group: id, atVisible: index).first.map { (groupOf($0), $0) } ?? (UUID(), stick.id)
+        setExpanded(true, stick: result.1)   // closes the others in a one-at-a-time space
+        return result
     }
 
     private func groupOf(_ stick: UUID) -> UUID { groupID(ofStick: stick) ?? UUID() }
@@ -203,6 +205,21 @@ final class AppStore: ObservableObject {
         guard let l = locate(stick: id) else { return }
         state.groups[l.group].sticks[l.stick].isExpanded = expanded
         if !expanded { hideRevealed(inStick: id) }
+        else if state.groups[l.group].isExclusive { collapseOthers(except: id, inSpace: l.group) }
+    }
+
+    private func collapseOthers(except id: UUID, inSpace g: Int) {
+        for s in state.groups[g].sticks.indices where state.groups[g].sticks[s].id != id && state.groups[g].sticks[s].isExpanded {
+            state.groups[g].sticks[s].isExpanded = false
+            hideRevealed(inStick: state.groups[g].sticks[s].id)
+        }
+    }
+
+    /// Turning it on keeps the first open group open and closes the rest.
+    func setExclusive(_ on: Bool, space id: UUID) {
+        guard let g = groupIndex(id) else { return }
+        state.groups[g].isExclusive = on
+        if on, let keep = state.groups[g].sticks.first(where: \.isExpanded) { collapseOthers(except: keep.id, inSpace: g) }
     }
 
     func setHidden(_ hidden: Bool, stick id: UUID) {
@@ -255,7 +272,7 @@ final class AppStore: ObservableObject {
         guard let l = locate(stick: stick) else { return nil }
         let block = Block()
         state.groups[l.group].sticks[l.stick].blocks.append(block)
-        state.groups[l.group].sticks[l.stick].isExpanded = true
+        setExpanded(true, stick: stick)
         if edit { editingBlock = block.id }
         return block.id
     }
