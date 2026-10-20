@@ -57,6 +57,7 @@ struct RenameView: View {
     let close: () -> Void
 
     @State private var name: String
+    @Environment(\.colorScheme) private var scheme
 
     init(store: AppStore, target: Target, close: @escaping () -> Void) {
         self.store = store
@@ -71,20 +72,20 @@ struct RenameView: View {
     private var trimmed: String { name.trimmingCharacters(in: .whitespacesAndNewlines) }
 
     var body: some View {
-        AppWindowChrome(title: { if case .space = target { return "Rename Space" } else { return "Rename Group" } }(), close: close) {
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Name").font(.system(size: 12)).foregroundStyle(.secondary)
-                AppTextField(placeholder: "Name", text: $name, onSubmit: save)
-                HStack {
-                    Spacer()
-                    AppButton(title: "Cancel", action: close).keyboardShortcut(.cancelAction)
-                    AppButton(title: "Save", style: .primary, enabled: !trimmed.isEmpty, action: save)
-                        .keyboardShortcut(.defaultAction)
-                }
-                .padding(.top, 6)
+        // Bare surface like New Space: a name field and two buttons.
+        VStack(alignment: .leading, spacing: 12) {
+            AppTextField(placeholder: "Name", text: $name, onSubmit: save)
+            HStack {
+                Spacer()
+                AppButton(title: "Cancel", action: close).keyboardShortcut(.cancelAction)
+                AppButton(title: "Save", style: .primary, enabled: !trimmed.isEmpty, action: save)
+                    .keyboardShortcut(.defaultAction)
             }
         }
+        .padding(14)
         .frame(width: 300)
+        .foregroundStyle(Palette.text(scheme))
+        .stickSurface(radius: 12)
     }
 
     private func save() {
@@ -139,7 +140,7 @@ struct ExportView: View {
                 AppSegmented(options: [(Scope.space, "Space"), (Scope.group, "Group")], selection: $scope)
             }
             AppCodeBox { JSONEditor(text: .constant(json), editable: false) }
-                .frame(height: 190)
+                .frame(minHeight: 60, maxHeight: .infinity)
             HStack(alignment: .center) {
                 AppCheckbox(title: "Include masked content", isOn: $includeSensitive)
                 Spacer(minLength: 12)
@@ -152,10 +153,14 @@ struct ExportView: View {
             }
         }
         .padding(14)
-        .frame(width: 440)
+        .frame(minWidth: Self.minSize.width, maxWidth: .infinity, minHeight: Self.minSize.height, maxHeight: .infinity)
         .foregroundStyle(Palette.text(scheme))
         .stickSurface(radius: 12)
     }
+
+    /// The window opens at this size and can be resized; the JSON box takes whatever room is left.
+    static let defaultSize = CGSize(width: 440, height: 288)
+    static let minSize = CGSize(width: 380, height: 240)
 
     private func copy() {
         let pb = NSPasteboard.general
@@ -288,7 +293,7 @@ struct ImportWindowView: View {
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            AppSegmented(options: [(Tab.json, "JSON"), (Tab.git, "Git")], selection: $tab)
+            AppSegmented(options: [(Tab.json, "JSON"), (Tab.git, "GIT")], selection: $tab)
             Group {
                 if tab == .json {
                     ImportView(store: store, group: space, visibleIndex: visibleIndex, initialText: initialText, close: close)
@@ -307,7 +312,7 @@ struct ImportWindowView: View {
 
 // MARK: - Import from Git
 
-/// The "Git" tab of the import window. A space file becomes a new space; a group file is added to `targetSpace`.
+/// The "GIT" tab of the import window. A space file becomes a new space; a group file is added to `targetSpace`.
 struct GitImportView: View {
     enum Kind: Hashable { case space, file }
 
@@ -343,7 +348,7 @@ struct GitImportView: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {
             if targetSpace != nil {
-                AppSegmented(options: [(Kind.file, "Group file"), (Kind.space, "Space")], selection: $kind)
+                AppSegmented(options: [(Kind.file, "Group"), (Kind.space, "Space")], selection: $kind)
             }
             AppTextField(placeholder: "Repository, e.g. git@gitlab.example.com:team/links.git", text: $url, onSubmit: start)
             AppTextField(placeholder: kind == .space ? "Space file, e.g. platform/stickspace.json" : "Group file, e.g. platform/groups/grafana.json",

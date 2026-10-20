@@ -336,21 +336,22 @@ final class HelperWindows: NSObject, NSWindowDelegate {
     /// Two tabs: pasted JSON, or a file in a Git repository.
     func showImport(group: UUID?, index: Int?, initialText: String = "", tab: ImportWindowView.Tab = .json) {
         guard let sync else { return }
-        presentApp("import", size: NSSize(width: ImportWindowView.defaultSize.width, height: ImportWindowView.defaultSize.height),
-                   minSize: NSSize(width: ImportWindowView.minSize.width, height: ImportWindowView.minSize.height)) { close in
+        presentApp("import", size: ImportWindowView.defaultSize, minSize: ImportWindowView.minSize) { close in
             ImportWindowView(store: self.store, sync: sync, space: group, visibleIndex: index, initialText: initialText, tab: tab, close: close)
         }
     }
 
     func showExport(stick: UUID, includeSensitive: Bool = false, wholeSpace: Bool = false) {
         guard let space = store.groupID(ofStick: stick) else { return }
-        presentApp("export") { close in
+        presentApp("export", size: ExportView.defaultSize, minSize: ExportView.minSize) { close in
             ExportView(store: self.store, stickID: stick, spaceID: space, includeSensitive: includeSensitive, wholeSpace: wholeSpace, close: close)
         }
     }
 
     func showExport(space: UUID) {
-        presentApp("export") { close in ExportView(store: self.store, stickID: nil, spaceID: space, close: close) }
+        presentApp("export", size: ExportView.defaultSize, minSize: ExportView.minSize) { close in
+            ExportView(store: self.store, stickID: nil, spaceID: space, close: close)
+        }
     }
 
     func showAbout(expandAll: Bool = false) {
@@ -366,7 +367,7 @@ final class HelperWindows: NSObject, NSWindowDelegate {
     func closeAll() { windows.values.forEach { $0.close() } }
 
     /// `size` makes the window resizable (borderless panel with edge resizing) down to `minSize`.
-    private func presentApp<V: View>(_ key: String, size: NSSize? = nil, minSize: NSSize? = nil, _ make: (@escaping () -> Void) -> V) {
+    private func presentApp<V: View>(_ key: String, size: CGSize? = nil, minSize: CGSize? = nil, _ make: (@escaping () -> Void) -> V) {
         windows[key]?.close()
         let host = NSHostingView(rootView: make { [weak self] in self?.windows[key]?.close() })
         let resizable = size != nil
