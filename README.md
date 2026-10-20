@@ -25,6 +25,7 @@ Sticky snippets for the macOS menu bar: keep texts, links, commands and secrets 
 - **Titles and tags**: an entity can have a title shown instead of a long text or link, and tags such as `prod`, `stg`, `dev` shown as coloured chips.
 - **Right-click** the space header, a group or an entity for everything else: rename, hide/show, add groups, zoom, import/export, delete (⌘Z undoes).
 - **Zoom per space**: ⌘+ / ⌘− / ⌘0.
+- **Git sync**: share a space with your team through a Git repository: import a space file or a group file, **Sync**, edit, **Push** (a branch and, on GitLab, a merge request). See [`docs/design/git-sync.md`](docs/design/git-sync.md) and [`docs/examples`](docs/examples/README.md).
 - **Import / Export** as versioned JSON (paste to import; masked entities are excluded from export unless you opt in).
 - Menu bar: New Space, Import, show/hide each space, theme switch, Restart, Quit.
 

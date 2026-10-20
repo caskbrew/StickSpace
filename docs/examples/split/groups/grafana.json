@@ -1,42 +1,52 @@
 {
-  "version": 2,
-  "id": "f2f26167-98d6-4938-91f4-d83e581cc8d7",
-  "name": "Grafana",
-  "entities": [
+  "entities" : [
     {
-      "id": "a812b893-13fc-4111-ae96-662ce5fb3c54",
-      "type": "link",
-      "url": "https://grafana.example.com/d/k8s-overview?var-env=prod",
-      "title": "Cluster overview",
-      "tags": ["prod"]
+      "id" : "a812b893-13fc-4111-ae96-662ce5fb3c54",
+      "tags" : [
+        "prod"
+      ],
+      "title" : "Cluster overview",
+      "type" : "link",
+      "url" : "https://grafana.example.com/d/k8s-overview?var-env=prod"
     },
     {
-      "id": "25bc65de-5109-400c-96bc-1ec25e79846b",
-      "type": "link",
-      "url": "https://grafana.example.com/d/k8s-overview?var-env=stg",
-      "title": "Cluster overview",
-      "tags": ["stg"]
+      "id" : "25bc65de-5109-400c-96bc-1ec25e79846b",
+      "tags" : [
+        "stg"
+      ],
+      "title" : "Cluster overview",
+      "type" : "link",
+      "url" : "https://grafana.example.com/d/k8s-overview?var-env=stg"
     },
     {
-      "id": "aca7493f-6ec1-4e8d-b1f4-a6ad23abef20",
-      "type": "link",
-      "url": "https://grafana.example.com/d/k8s-overview?var-env=dev",
-      "title": "Cluster overview",
-      "tags": ["dev"]
+      "id" : "aca7493f-6ec1-4e8d-b1f4-a6ad23abef20",
+      "tags" : [
+        "dev"
+      ],
+      "title" : "Cluster overview",
+      "type" : "link",
+      "url" : "https://grafana.example.com/d/k8s-overview?var-env=dev"
     },
     {
-      "id": "555c104c-3674-40ff-8e9d-d78a92d61670",
-      "type": "link",
-      "url": "https://grafana.example.com/d/pg-main/postgres?var-env=prod",
-      "title": "Postgres",
-      "tags": ["prod"]
+      "id" : "555c104c-3674-40ff-8e9d-d78a92d61670",
+      "tags" : [
+        "prod"
+      ],
+      "title" : "Postgres",
+      "type" : "link",
+      "url" : "https://grafana.example.com/d/pg-main/postgres?var-env=prod"
     },
     {
-      "id": "9b901957-b3e9-44a2-8257-d4c422dbef07",
-      "type": "link",
-      "url": "https://grafana.example.com/d/edge-latency/latency",
-      "title": "Latency (p99)",
-      "tags": ["prod"]
+      "id" : "9b901957-b3e9-44a2-8257-d4c422dbef07",
+      "tags" : [
+        "prod"
+      ],
+      "title" : "Latency (p99)",
+      "type" : "link",
+      "url" : "https://grafana.example.com/d/edge-latency/latency"
     }
-  ]
+  ],
+  "id" : "f2f26167-98d6-4938-91f4-d83e581cc8d7",
+  "name" : "Grafana",
+  "version" : 2
 }

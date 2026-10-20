@@ -123,3 +123,29 @@ final class GitTests: GitTestCase {
         XCTAssertNil(GitRepo.link(in: "remote: nothing here\n"))
     }
 }
+
+/// The example files in docs/examples are real output of the encoder: reading and writing them again changes nothing.
+final class ExamplesTests: XCTestCase {
+    private var root: URL {
+        URL(fileURLWithPath: #filePath).deletingLastPathComponent().deletingLastPathComponent().appendingPathComponent("docs/examples")
+    }
+
+    private func text(_ path: String) throws -> String { try String(contentsOf: root.appendingPathComponent(path), encoding: .utf8) }
+
+    func testExampleFilesAreCurrentAndConsistent() throws {
+        for path in ["all-in-one/stickspace.json", "split/stickspace.json"] {
+            let original = try text(path)
+            let decoded = try Interchange.decodeSpaceFile(original)
+            XCTAssertEqual(Interchange.encodeSpaceFile(name: decoded.name, entries: decoded.entries), original, path)
+            for case .file(let relative) in decoded.entries {
+                let dir = (path as NSString).deletingLastPathComponent
+                let groupPath = dir + "/" + relative
+                let groupText = try text(groupPath)
+                XCTAssertEqual(Interchange.encodeGroupFile(try Interchange.decodeGroupFile(groupText)), groupText, groupPath)
+            }
+        }
+        let split = try Interchange.decodeSpaceFile(try text("split/stickspace.json"))
+        XCTAssertEqual(split.entries.count, 3)
+        XCTAssertEqual(split.entries.filter { if case .file = $0 { return true } else { return false } }.count, 2)
+    }
+}

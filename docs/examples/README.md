@@ -3,6 +3,9 @@
 > **Status: design.** The Git sync described here is not implemented yet. The files in this folder show the
 > proposed format (version 2) so the layout can be discussed before any code is written. Hostnames are fictional.
 
+The snippets in this README are shortened; the files in the subfolders are exactly what the app writes
+(a test re-encodes them and compares).
+
 ## The idea
 
 A **space** is bound to a **space file** in a Git repository. The space file is always there. It holds the
@@ -161,16 +164,21 @@ What the diff of that push looks like:
 ```diff
 --- a/platform/groups/grafana.json
 +++ b/platform/groups/grafana.json
-@@ -12,6 +12,13 @@
-       "tags": ["prod"]
+@@ -14,6 +14,16 @@
+       ],
+       "title" : "Cluster overview",
+       "type" : "link",
+       "url" : "https://grafana.example.com/d/k8s-overview?var-env=prod"
      },
 +    {
-+      "id": "5d0c2e8e-7a45-4f0e-9d0b-0a6a4d9b7c11",
-+      "type": "link",
-+      "title": "Cluster overview",
-+      "url": "https://grafana.example.com/d/k8s-overview?var-env=prod-us",
-+      "tags": ["prod"]
++      "id" : "5d0c2e8e-7a45-4f0e-9d0b-0a6a4d9b7c11",
++      "tags" : [
++        "prod"
++      ],
++      "title" : "Cluster overview",
++      "type" : "link",
++      "url" : "https://grafana.example.com/d/k8s-overview?var-env=prod-us"
 +    },
 ```
 
-Files are written pretty-printed with a stable key order, so diffs stay this small.
+Files are written pretty-printed with sorted keys (exactly as in the example files here), so diffs stay this small.

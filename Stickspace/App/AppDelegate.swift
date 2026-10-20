@@ -8,6 +8,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     private var windows: WindowManager!
     private var helpers: HelperWindows!
     private var toasts: ToastController!
+    private var sync: SyncController!
     private var statusItem: NSStatusItem!
     private var saveSubscription: AnyCancellable?
 
@@ -27,6 +28,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         NSApp.setActivationPolicy(.accessory)
         helpers = HelperWindows(store: store)
+        sync = SyncController(store: store)
+        sync.onMessage = { [unowned self] in showMessage($0, $1, $2) }
+        helpers.sync = sync
         windows = WindowManager(store: store)
         windows.actions = makeActions()
         toasts = ToastController(store: store)
@@ -93,7 +97,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             renameSpace: { [unowned self] in helpers.showRename(space: $0) },
             importInto: { [unowned self] group, index in helpers.showImport(group: group, index: index) },
             export: { [unowned self] in helpers.showExport(stick: $0) },
-            exportSpace: { [unowned self] in helpers.showExport(space: $0) }
+            exportSpace: { [unowned self] in helpers.showExport(space: $0) },
+            importGit: { [unowned self] in helpers.showGitImport(space: $0) },
+            sync: { [unowned self] in sync.sync(space: $0) },
+            push: { [unowned self] in sync.push(space: $0) },
+            gitStatus: { [unowned self] space in
+                GitStatus(hasSources: sync.hasSources(space), modified: sync.isModified(space), updates: sync.updates.contains(space.id))
+            }
         )
     }
 
@@ -120,6 +130,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             notice = ("Saved data could not be read", "\(AppInfo.name) started with a fresh set. \(where_)")
         }
         windows.sync()
+        sync.startChecking()
         saveSubscription = store.$state.dropFirst().sink { persistence.scheduleSave($0) }
         persistence.scheduleSave(store.state)
         if let notice {
@@ -135,6 +146,18 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// A new space (window); groups are added from its header.
     @objc func addSpace() { helpers.showNewStick(group: nil, index: nil) }
     @objc func importSpace() { helpers.showImport(group: nil, index: nil) }
+    @objc func importGit() { helpers.showGitImport(space: nil) }
+
+    /// Something to read after a sync or push; the link, if any, is a merge request page.
+    private func showMessage(_ title: String, _ text: String, _ link: String?) {
+        let alert = NSAlert()
+        alert.messageText = title
+        alert.informativeText = text
+        alert.addButton(withTitle: "OK")
+        if link != nil { alert.addButton(withTitle: "Open Merge Request") }
+        NSApp.activate(ignoringOtherApps: true)
+        if alert.runModal() == .alertSecondButtonReturn, let link, let url = URL(string: link) { NSWorkspace.shared.open(url) }
+    }
     @objc func showAbout() { helpers.showAbout() }
     @objc func zoomIn() { store.commandGroupID.map { store.zoomIn(group: $0) } }
     @objc func zoomOut() { store.commandGroupID.map { store.zoomOut(group: $0) } }
@@ -229,6 +252,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         menu.removeAllItems()
         menu.addAction("New Space", key: "n") { [unowned self] in addSpace() }
         menu.addAction("Import", key: "i") { [unowned self] in importSpace() }
+        menu.addAction("Import from Git") { [unowned self] in importGit() }
         menu.addItem(.separator())
 
         // One entry per space (window): check = shown.

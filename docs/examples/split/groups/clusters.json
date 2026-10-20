@@ -1,41 +1,49 @@
 {
-  "version": 2,
-  "id": "fbf775c6-5453-4661-a2ad-613f66c77d10",
-  "name": "Clusters",
-  "entities": [
+  "entities" : [
     {
-      "id": "3d1779e9-0933-411d-8ed7-5da7968b9f89",
-      "type": "text",
-      "text": "kubectl --context prod-eu-1 get pods -n platform",
-      "title": "prod (eu)",
-      "tags": ["prod"]
+      "id" : "3d1779e9-0933-411d-8ed7-5da7968b9f89",
+      "tags" : [
+        "prod"
+      ],
+      "text" : "kubectl --context prod-eu-1 get pods -n platform",
+      "title" : "prod (eu)",
+      "type" : "text"
     },
     {
-      "id": "cad81b5f-a6ee-428b-83e9-9686e3b8a593",
-      "type": "text",
-      "text": "kubectl --context prod-us-1 get pods -n platform",
-      "title": "prod (us)",
-      "tags": ["prod"]
+      "id" : "cad81b5f-a6ee-428b-83e9-9686e3b8a593",
+      "tags" : [
+        "prod"
+      ],
+      "text" : "kubectl --context prod-us-1 get pods -n platform",
+      "title" : "prod (us)",
+      "type" : "text"
     },
     {
-      "id": "aae6b642-b1aa-40fb-b1f9-9ffb3fb89f7a",
-      "type": "text",
-      "text": "kubectl --context stg-1 get pods -n platform",
-      "title": "stg",
-      "tags": ["stg"]
+      "id" : "aae6b642-b1aa-40fb-b1f9-9ffb3fb89f7a",
+      "tags" : [
+        "stg"
+      ],
+      "text" : "kubectl --context stg-1 get pods -n platform",
+      "title" : "stg",
+      "type" : "text"
     },
     {
-      "id": "87b001b0-b1cc-4196-b3cc-58a0caac6e76",
-      "type": "text",
-      "text": "kubectl --context dev-1 get pods -n platform",
-      "title": "dev",
-      "tags": ["dev"]
+      "id" : "87b001b0-b1cc-4196-b3cc-58a0caac6e76",
+      "tags" : [
+        "dev"
+      ],
+      "text" : "kubectl --context dev-1 get pods -n platform",
+      "title" : "dev",
+      "type" : "text"
     },
     {
-      "id": "ca6f60e6-a39c-4012-8dcc-a02c7b898faf",
-      "type": "link",
-      "url": "https://argocd.example.com/applications",
-      "title": "ArgoCD"
+      "id" : "ca6f60e6-a39c-4012-8dcc-a02c7b898faf",
+      "title" : "ArgoCD",
+      "type" : "link",
+      "url" : "https://argocd.example.com/applications"
     }
-  ]
+  ],
+  "id" : "fbf775c6-5453-4661-a2ad-613f66c77d10",
+  "name" : "Clusters",
+  "version" : 2
 }

@@ -260,6 +260,93 @@ struct ImportView: View {
     }
 }
 
+// MARK: - Import from Git
+
+/// A space file becomes a new space; a group file is added to `targetSpace`. Bare glass panel like the other import window.
+struct GitImportView: View {
+    enum Kind: Hashable { case space, file }
+
+    @ObservedObject var store: AppStore
+    let sync: SyncController
+    /// Set when opened from a space's menu: then a single group file can be imported into it.
+    let targetSpace: UUID?
+    let close: () -> Void
+
+    @State private var kind: Kind
+    @State private var url = ""
+    @State private var path = ""
+    @State private var ref = "main"
+    @State private var key = ""
+    @State private var direct = false
+    @State private var working = false
+    @State private var error: String?
+    @Environment(\.colorScheme) private var scheme
+
+    init(store: AppStore, sync: SyncController, targetSpace: UUID?, close: @escaping () -> Void) {
+        self.store = store
+        self.sync = sync
+        self.targetSpace = targetSpace
+        self.close = close
+        _kind = State(initialValue: targetSpace == nil ? .space : .file)
+    }
+
+    private var ready: Bool {
+        !url.trimmingCharacters(in: .whitespaces).isEmpty && !path.trimmingCharacters(in: .whitespaces).isEmpty
+            && !ref.trimmingCharacters(in: .whitespaces).isEmpty && !working
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            if targetSpace != nil {
+                AppSegmented(options: [(Kind.file, "Group file"), (Kind.space, "Space")], selection: $kind)
+            }
+            AppTextField(placeholder: "Repository, e.g. git@gitlab.example.com:team/links.git", text: $url, onSubmit: start)
+            AppTextField(placeholder: kind == .space ? "Space file, e.g. platform/stickspace.json" : "Group file, e.g. platform/groups/grafana.json",
+                         text: $path, onSubmit: start, autofocus: false)
+            HStack(spacing: 8) {
+                AppTextField(placeholder: "Branch or tag", text: $ref, onSubmit: start, autofocus: false).frame(width: 130)
+                AppTextField(placeholder: "SSH key (optional)", text: $key, onSubmit: start, autofocus: false)
+            }
+            AppCheckbox(title: "Push straight to the branch (no merge request)", isOn: $direct)
+            if let error {
+                AppNotice(kind: .error, message: error)
+            } else if kind == .space && targetSpace != nil {
+                Text("Creates a new space with every group in the file.").font(.system(size: 12)).foregroundStyle(.secondary)
+            }
+            HStack {
+                Spacer()
+                AppButton(title: "Cancel", action: close).keyboardShortcut(.cancelAction)
+                AppButton(title: working ? "Importing…" : "Import", style: .primary, enabled: ready, action: start)
+                    .keyboardShortcut(.defaultAction)
+            }
+        }
+        .padding(14)
+        .frame(width: 460)
+        .foregroundStyle(Palette.text(scheme))
+        .stickSurface(radius: 12)
+    }
+
+    private func start() {
+        guard ready else { return }
+        error = nil
+        working = true
+        var file = path.trimmingCharacters(in: .whitespaces)
+        while file.hasPrefix("/") { file.removeFirst() }
+        let k = key.trimmingCharacters(in: .whitespaces)
+        let source = GitSource(url: url.trimmingCharacters(in: .whitespaces), path: file, ref: ref.trimmingCharacters(in: .whitespaces),
+                               sshKey: k.isEmpty ? nil : (k as NSString).expandingTildeInPath, directPush: direct)
+        let finish: (Result<Void, Error>) -> Void = { result in
+            working = false
+            switch result {
+            case .success: close()
+            case .failure(let e): error = (e as? LocalizedError)?.errorDescription ?? e.localizedDescription
+            }
+        }
+        if kind == .file, let space = targetSpace { sync.importGroup(source, into: space, done: finish) }
+        else { sync.importSpace(source, done: finish) }
+    }
+}
+
 // MARK: - About & Help
 
 struct AboutView: View {
@@ -326,6 +413,14 @@ struct AboutView: View {
         Topic(title: "Zoom per Space", symbol: "magnifyingglass", bullets: [
             "⌘+ (or ⌘=) zooms in, ⌘− zooms out, ⌘0 resets. The range is 60%–200%. The space header menu has the same items.",
             "Zoom applies only to the space you last used and is remembered per space.",
+        ]),
+        Topic(title: "Git Sync", symbol: "arrow.triangle.2.circlepath", bullets: [
+            "Share a space with your team through a Git repository (GitLab, GitHub, anything git can reach). Needs git: run “xcode-select --install” if it is missing.",
+            "Menu bar → Import from Git takes a space file and makes a new space of it. A space's menu → Import from Git adds one group file to that space.",
+            "Groups from Git can be edited here. Sync (space menu) brings in what others changed; yours is kept when you both edited the same entity.",
+            "Push sends your changes to a new branch (a merge request on GitLab); it syncs first. A tag cannot be pushed to.",
+            "Revert (group or entity menu) goes back to the repository's version. Masked entities and custom groups never leave this Mac.",
+            "The app checks for updates in the background every few hours; the space menu then says “Sync (updates available)”.",
         ]),
         Topic(title: "Import & Export (JSON)", symbol: "doc", bullets: [
             "Paste JSON to import (the Paste button fills the box from the clipboard). Import never overwrites existing groups.",

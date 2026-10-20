@@ -40,6 +40,8 @@ struct AppTextField: View {
     let placeholder: String
     @Binding var text: String
     var onSubmit: () -> Void = {}
+    /// The first field of a window takes focus; the others leave it alone.
+    var autofocus = true
 
     @FocusState private var focused: Bool
     @Environment(\.colorScheme) private var scheme
@@ -56,6 +58,7 @@ struct AppTextField: View {
             .overlay(RoundedRectangle(cornerRadius: 6).strokeBorder(focused ? Palette.blue : Palette.separator(scheme).opacity(2),
                                                                     lineWidth: focused ? 1.5 : 0.5))
             .onAppear {
+                guard autofocus else { return }
                 focused = true
                 DispatchQueue.main.async { (NSApp.keyWindow?.firstResponder as? NSTextView)?.selectAll(nil) }
             }

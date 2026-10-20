@@ -9,6 +9,16 @@ struct WindowActions {
     var importInto: (_ space: UUID, _ visibleIndex: Int?) -> Void = { _, _ in }
     var export: (_ stick: UUID) -> Void = { _ in }
     var exportSpace: (_ space: UUID) -> Void = { _ in }
+    var importGit: (_ space: UUID?) -> Void = { _ in }
+    var sync: (_ space: UUID) -> Void = { _ in }
+    var push: (_ space: UUID) -> Void = { _ in }
+    var gitStatus: (_ space: StickGroup) -> GitStatus = { _ in GitStatus() }
+}
+
+struct GitStatus {
+    var hasSources = false
+    var modified = false
+    var updates = false
 }
 
 private struct FramesKey: PreferenceKey {
@@ -298,6 +308,7 @@ struct StickView: View {
         menu.autoenablesItems = false
         menu.addAction("Rename") { actions.rename(stick.id) }
         menu.addAction("Hide", checked: stick.isHidden) { store.setHidden(!stick.isHidden, stick: stick.id) }
+        if stick.isModified { menu.addAction("Revert") { store.revertGroup(stick.id) } }
         menu.addItem(.separator())
         menu.addAction("Add Group Above") { actions.newStick(groupID, visibleIndex) }
         menu.addAction("Add Group Below") { actions.newStick(groupID, visibleIndex + 1) }
@@ -500,7 +511,14 @@ struct SpaceHeader: View {
         menu.addAction("Add Group") { actions.newStick(space.id, nil) }
         menu.addItem(.separator())
         menu.addAction("Import Group") { actions.importInto(space.id, nil) }
+        menu.addAction("Import from Git") { actions.importGit(space.id) }
         menu.addAction("Export") { actions.exportSpace(space.id) }
+        let git = actions.gitStatus(space)
+        if git.hasSources {
+            menu.addItem(.separator())
+            menu.addAction(git.updates ? "Sync (updates available)" : "Sync") { actions.sync(space.id) }
+            menu.addAction("Push", enabled: git.modified) { actions.push(space.id) }
+        }
         menu.addItem(.separator())
         menu.addAction("Single", checked: space.isExclusive) { store.setExclusive(!space.isExclusive, space: space.id) }
         let showing = store.showingHidden.contains(space.id)
@@ -724,6 +742,7 @@ struct BlockRow: View {
         menu.addAction("Move Down", enabled: canMove(1)) { move(1) }
         menu.addItem(.separator())
         menu.addAction("Hide", checked: block.isHidden) { store.setHidden(!block.isHidden, block: block.id) }
+        if store.isBlockModified(block.id) { menu.addAction("Revert") { store.revertBlock(block.id) } }
         menu.addAction("Mask", checked: block.isMasked) { store.setMasked(!block.isMasked, block: block.id) }
         menu.addItem(.separator())
         menu.addAction("Delete", destructive: true) { store.deleteBlock(block.id) }

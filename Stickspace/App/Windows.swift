@@ -315,6 +315,8 @@ final class HelperWindows: NSObject, NSWindowDelegate {
     private let store: AppStore
     private var windows: [String: NSWindow] = [:]
 
+    var sync: SyncController?
+
     init(store: AppStore) { self.store = store }
 
     /// New group in a space, or (group == nil) a new space.
@@ -335,6 +337,12 @@ final class HelperWindows: NSObject, NSWindowDelegate {
         presentApp("import") { close in
             ImportView(store: self.store, group: group, visibleIndex: index, initialText: initialText, close: close)
         }
+    }
+
+    /// A space from a space file (space == nil), or a group file / space file chosen inside a space.
+    func showGitImport(space: UUID?) {
+        guard let sync else { return }
+        presentApp("git") { close in GitImportView(store: self.store, sync: sync, targetSpace: space, close: close) }
     }
 
     func showExport(stick: UUID, includeSensitive: Bool = false, wholeSpace: Bool = false) {

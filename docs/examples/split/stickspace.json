@@ -1,38 +1,42 @@
 {
-  "version": 2,
-  "name": "Platform team",
-  "groups": [
-    { "file": "groups/clusters.json" },
-    { "file": "groups/grafana.json" },
+  "groups" : [
     {
-      "id": "8bd21428-4d77-4c98-8c6f-af88152b1a63",
-      "name": "Jira & docs",
-      "entities": [
+      "file" : "groups/clusters.json"
+    },
+    {
+      "file" : "groups/grafana.json"
+    },
+    {
+      "entities" : [
         {
-          "id": "b60bb80c-192a-4dc9-bdd5-ddfecf8be857",
-          "type": "link",
-          "url": "https://jira.example.com/secure/RapidBoard.jspa?rapidView=42",
-          "title": "Team board"
+          "id" : "b60bb80c-192a-4dc9-bdd5-ddfecf8be857",
+          "title" : "Team board",
+          "type" : "link",
+          "url" : "https://jira.example.com/secure/RapidBoard.jspa?rapidView=42"
         },
         {
-          "id": "4ff42706-b2a9-49d0-a9a2-56ff89e6a8ed",
-          "type": "link",
-          "url": "https://jira.example.com/issues/?jql=project%20%3D%20OPS%20AND%20type%20%3D%20Incident",
-          "title": "Incidents"
+          "id" : "4ff42706-b2a9-49d0-a9a2-56ff89e6a8ed",
+          "title" : "Incidents",
+          "type" : "link",
+          "url" : "https://jira.example.com/issues/?jql=project%20%3D%20OPS%20AND%20type%20%3D%20Incident"
         },
         {
-          "id": "f33a0224-eed7-4ada-8e51-050554ad29c1",
-          "type": "link",
-          "url": "https://wiki.example.com/display/OPS/Runbooks",
-          "title": "Runbooks"
+          "id" : "f33a0224-eed7-4ada-8e51-050554ad29c1",
+          "title" : "Runbooks",
+          "type" : "link",
+          "url" : "https://wiki.example.com/display/OPS/Runbooks"
         },
         {
-          "id": "2a883477-8f7c-4a89-aefe-2f7171cb7aa8",
-          "type": "link",
-          "url": "https://pagerduty.example.com/schedules#PXYZ123",
-          "title": "On-call schedule"
+          "id" : "2a883477-8f7c-4a89-aefe-2f7171cb7aa8",
+          "title" : "On-call schedule",
+          "type" : "link",
+          "url" : "https://pagerduty.example.com/schedules#PXYZ123"
         }
-      ]
+      ],
+      "id" : "8bd21428-4d77-4c98-8c6f-af88152b1a63",
+      "name" : "Jira & docs"
     }
-  ]
+  ],
+  "name" : "Platform team",
+  "version" : 2
 }
