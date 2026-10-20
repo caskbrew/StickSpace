@@ -198,7 +198,7 @@ final class ScreenshotRunner {
             Variant(name: "03-pinned", sticks: collapsed(), pinned: true),
             Variant(name: "04-editing", sticks: [editing, Stick(name: "Links")]),
             Variant(name: "05-empty-stick", sticks: [Stick(name: "Workspace"), empty]),
-            Variant(name: "06-multiline-hidden-line", sticks: [multi]),
+            Variant(name: "06-multiline-hidden-line", sticks: [multi, Stick(name: "Archive", isHidden: true)]),
             Variant(name: "07-zoom-80", sticks: [fullStick, Stick(name: "Links")], zoom: 0.8),
             Variant(name: "08-zoom-125", sticks: [fullStick, Stick(name: "Links")], zoom: 1.25),
             Variant(name: "09-space-collapsed", sticks: collapsed(), collapsed: true),
@@ -218,6 +218,7 @@ final class ScreenshotRunner {
             groups.append(g)
         }
         store.load(AppState(theme: .light, groups: groups))
+        store.setShowingHidden(true, space: groups[5].id)
         if let editID = groups[3].sticks[0].blocks.first?.id { store.editingBlock = editID }
         if let secret = groups[1].sticks[0].blocks.first(where: \.isMasked)?.id { store.toggleReveal(secret) }
         // Revealed variant: second masked state is shown by revealing in the "multiline" group's twin; keep 02 masked.

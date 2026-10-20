@@ -11,6 +11,8 @@ final class AppStore: ObservableObject {
     @Published var state = AppState()
     /// Transient UI state; never persisted, so a revealed secret cannot survive a relaunch.
     @Published private(set) var revealed: Set<UUID> = []
+    /// Spaces currently listing their hidden groups and entities. Transient, like `revealed`.
+    @Published private(set) var showingHidden: Set<UUID> = []
     @Published var editingBlock: UUID?
     @Published var toast: Toast?
 
@@ -54,6 +56,7 @@ final class AppStore: ObservableObject {
     func load(_ newState: AppState) {
         state = newState
         revealed = []
+        showingHidden = []
         editingBlock = nil
         undoStack = []
     }
@@ -89,6 +92,16 @@ final class AppStore: ObservableObject {
         guard let g = groupIndex(id) else { return }
         let w = SpaceWidth.clamp(width.rounded())
         if state.groups[g].width != w { state.groups[g].width = w }
+    }
+
+    func setShowingHidden(_ on: Bool, space id: UUID) {
+        if on { showingHidden.insert(id) } else { showingHidden.remove(id) }
+    }
+
+    /// Hidden groups plus hidden entities in a space.
+    func hiddenCount(space id: UUID) -> Int {
+        guard let g = groupIndex(id) else { return 0 }
+        return state.groups[g].sticks.reduce(0) { $0 + ($1.isHidden ? 1 : 0) + $1.blocks.filter(\.isHidden).count }
     }
 
     func setCollapsed(_ collapsed: Bool, space id: UUID) {
@@ -198,17 +211,28 @@ final class AppStore: ObservableObject {
         if hidden { hideRevealed(inStick: id) }
     }
 
-    /// Applies a new order to the visible sticks; hidden sticks keep their positions.
+    /// Applies a new order. `ids` is either every group (hidden ones listed too) or just the visible ones,
+    /// in which case hidden groups keep their positions. Anything else is ignored.
     func setVisibleOrder(_ ids: [UUID], group id: UUID) {
-        guard let g = groupIndex(id) else { return }
-        let sticks = state.groups[g].sticks
-        let slots = sticks.indices.filter { !sticks[$0].isHidden }
-        let byID = Dictionary(uniqueKeysWithValues: sticks.map { ($0.id, $0) })
-        let ordered = ids.compactMap { byID[$0] }.filter { !$0.isHidden }
-        guard ordered.count == slots.count else { return }
-        var result = sticks
-        for (slot, stick) in zip(slots, ordered) { result[slot] = stick }
+        guard let g = groupIndex(id), let result = Self.reordered(state.groups[g].sticks, by: ids, isHidden: \.isHidden) else { return }
         state.groups[g].sticks = result
+    }
+
+    private static func reordered<T: Identifiable>(_ items: [T], by ids: [UUID], isHidden: (T) -> Bool) -> [T]? where T.ID == UUID {
+        let byID = Dictionary(uniqueKeysWithValues: items.map { ($0.id, $0) })
+        let ordered = ids.compactMap { byID[$0] }
+        guard ordered.count == ids.count else { return nil }
+        let slots: [Int]
+        if ordered.count == items.count {
+            slots = Array(items.indices)
+        } else if ordered.count == items.filter({ !isHidden($0) }).count, ordered.allSatisfy({ !isHidden($0) }) {
+            slots = items.indices.filter { !isHidden(items[$0]) }
+        } else {
+            return nil
+        }
+        var result = items
+        for (slot, item) in zip(slots, ordered) { result[slot] = item }
+        return result
     }
 
     func deleteStick(_ id: UUID) {
@@ -270,16 +294,10 @@ final class AppStore: ObservableObject {
         if hidden { hideReveal(id); if editingBlock == id { editingBlock = nil } }
     }
 
-    /// Reorders the shown sections of a stick; hidden ones keep their slots.
+    /// Reorders the entities of a group (all of them, or only the visible ones; see `setVisibleOrder`).
     func setBlockOrder(_ ids: [UUID], stick id: UUID) {
-        guard let l = locate(stick: id) else { return }
-        let blocks = state.groups[l.group].sticks[l.stick].blocks
-        let slots = blocks.indices.filter { !blocks[$0].isHidden }
-        let byID = Dictionary(uniqueKeysWithValues: blocks.map { ($0.id, $0) })
-        let ordered = ids.compactMap { byID[$0] }.filter { !$0.isHidden }
-        guard ordered.count == slots.count else { return }
-        var result = blocks
-        for (slot, block) in zip(slots, ordered) { result[slot] = block }
+        guard let l = locate(stick: id),
+              let result = Self.reordered(state.groups[l.group].sticks[l.stick].blocks, by: ids, isHidden: \.isHidden) else { return }
         state.groups[l.group].sticks[l.stick].blocks = result
     }
 

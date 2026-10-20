@@ -52,7 +52,8 @@ struct GroupView: View {
 
     private func stack(_ g: StickGroup) -> some View {
         let z = CGFloat(g.zoom)
-        let sticks = g.visibleSticks
+        let showHidden = store.showingHidden.contains(g.id)
+        let sticks = showHidden ? g.sticks : g.visibleSticks
         let byID = Dictionary(uniqueKeysWithValues: sticks.map { ($0.id, $0) })
         let order = drag?.order ?? sticks.map(\.id)
 
@@ -62,7 +63,7 @@ struct GroupView: View {
                     let lifted = drag?.id == id
                     StickView(
                         store: store, stick: stick, groupID: g.id,
-                        visibleIndex: sticks.firstIndex { $0.id == id } ?? 0,
+                        visibleIndex: sticks.prefix { $0.id != id }.filter { !$0.isHidden }.count,
                         isPinned: g.isPinned, actions: actions,
                         onGripChanged: { gripChanged(id, $0, sticks: sticks) },
                         onGripEnded: { _ in gripEnded() }
@@ -104,6 +105,7 @@ struct GroupView: View {
         }
         .frame(width: CGFloat(g.width) * z)
         .environment(\.zoom, z)
+        .environment(\.showsHidden, showHidden)
         .fixedSize(horizontal: false, vertical: true)
         .onGeometryChange(for: CGFloat.self) { $0.size.height } action: { onHeight($0) }
 
@@ -185,9 +187,9 @@ struct StickView: View {
     let onGripEnded: (DragGesture.Value) -> Void
 
     @Environment(\.zoom) private var z
+    @Environment(\.showsHidden) private var showsHidden
     @Environment(\.colorScheme) private var scheme
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @State private var showSections = false
     @State private var hovering = false
     @State private var blockFrames: [UUID: CGRect] = [:]
     @State private var blockDrag: BlockDrag?
@@ -200,7 +202,7 @@ struct StickView: View {
         var translation: CGFloat = 0
     }
 
-    private var shownBlocks: [Block] { stick.blocks.filter { !$0.isHidden } }
+    private var shownBlocks: [Block] { showsHidden ? stick.blocks : stick.blocks.filter { !$0.isHidden } }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -211,10 +213,8 @@ struct StickView: View {
         }
         .foregroundStyle(Palette.text(scheme))
         .stickSurface()
+        .opacity(stick.isHidden ? 0.5 : 1)
         .onHover { hovering = $0 }
-        .popover(isPresented: $showSections, arrowEdge: .bottom) {
-            SectionsPopover(store: store, stickID: stick.id)
-        }
         .accessibilityElement(children: .contain)
         .accessibilityLabel(stick.name)
     }
@@ -266,7 +266,15 @@ struct StickView: View {
             .accessibilityAction(named: "Move down") { move(by: 1) }
             .accessibilityAction(named: "Show menu") { showMenu() }
 
-            if stick.isExpanded && hovering {
+            if showsHidden {
+                IconButton(symbol: stick.isHidden ? "eye.slash.circle" : "eye.circle",
+                           label: stick.isHidden ? "Show group" : "Hide group",
+                           help: stick.isHidden ? "Hidden: click to show this group" : "Click to hide this group",
+                           tint: stick.isHidden ? Palette.blue : nil) {
+                    store.setHidden(!stick.isHidden, stick: stick.id)
+                }
+            }
+            if stick.isExpanded && hovering && !stick.isHidden {
                 IconButton(symbol: "plus", label: "Add entity", help: "Add entity") {
                     NSApp.activate(ignoringOtherApps: true)
                     store.addBlock(to: stick.id)
@@ -287,7 +295,7 @@ struct StickView: View {
 
     private func move(by delta: Int) {
         guard let g = store.groupIndex(groupID) else { return }
-        var ids = store.state.groups[g].visibleSticks.map(\.id)
+        var ids = (showsHidden ? store.state.groups[g].sticks : store.state.groups[g].visibleSticks).map(\.id)
         guard let i = ids.firstIndex(of: stick.id), ids.indices.contains(i + delta) else { return }
         ids.swapAt(i, i + delta)
         withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.2)) { store.setVisibleOrder(ids, group: groupID) }
@@ -296,20 +304,11 @@ struct StickView: View {
     private func showMenu() {
         let menu = NSMenu()
         menu.autoenablesItems = false
-        menu.addAction("Rename Group") { actions.rename(stick.id) }
-        menu.addAction("Hide Group") { store.setHidden(true, stick: stick.id) }
-        menu.addAction("Entities…") { showSections = true }
-        let hiddenLines = stick.blocks.filter(\.isHidden)
-        menu.addSubmenu("Show Hidden Entities…", enabled: !hiddenLines.isEmpty) { sub in
-            for line in hiddenLines { sub.addAction(line.menuTitle) { store.setHidden(false, block: line.id) } }
-        }
+        menu.addAction("Rename") { actions.rename(stick.id) }
+        menu.addAction(stick.isHidden ? "Show Group" : "Hide Group") { store.setHidden(!stick.isHidden, stick: stick.id) }
         menu.addItem(.separator())
         menu.addAction("Add Group Above") { actions.newStick(groupID, visibleIndex) }
         menu.addAction("Add Group Below") { actions.newStick(groupID, visibleIndex + 1) }
-        let hidden = store.groupIndex(groupID).map { store.state.groups[$0].sticks.filter(\.isHidden) } ?? []
-        menu.addSubmenu("Show Hidden Groups…", enabled: !hidden.isEmpty) { sub in
-            for s in hidden { sub.addAction(s.name) { store.setHidden(false, stick: s.id) } }
-        }
         menu.addItem(.separator())
         menu.addAction("Import Group") { actions.importInto(groupID, visibleIndex + 1) }
         menu.addAction("Export Group") { actions.export(stick.id) }
@@ -487,6 +486,16 @@ struct SpaceHeader: View {
                 IconButton(symbol: "plus", label: "Add group", help: "Add group") { actions.newStick(space.id, nil) }
                     .transition(.opacity)
             }
+            let showing = store.showingHidden.contains(space.id)
+            if showing || store.hiddenCount(space: space.id) > 0 {
+                IconButton(symbol: "eye.slash",
+                           label: showing ? "Stop showing hidden items" : "Show hidden items",
+                           help: showing ? "Hide the hidden groups and entities again"
+                                         : "Show hidden groups and entities (\(store.hiddenCount(space: space.id)))",
+                           tint: showing ? Palette.blue : nil) {
+                    store.setShowingHidden(!showing, space: space.id)
+                }
+            }
             IconButton(symbol: space.isPinned ? "pin.fill" : "pin",
                        label: space.isPinned ? "Unpin window" : "Pin window",
                        help: space.isPinned ? "Unpin: allow moving this window" : "Pin: lock this window in place",
@@ -505,11 +514,11 @@ struct SpaceHeader: View {
     private func showMenu() {
         let menu = NSMenu()
         menu.autoenablesItems = false
-        menu.addAction("Rename Space") { actions.renameSpace(space.id) }
+        menu.addAction("Rename") { actions.renameSpace(space.id) }
         menu.addAction("Add Group") { actions.newStick(space.id, nil) }
-        let hidden = space.sticks.filter(\.isHidden)
-        menu.addSubmenu("Show Hidden Groups…", enabled: !hidden.isEmpty) { sub in
-            for s in hidden { sub.addAction(s.name) { store.setHidden(false, stick: s.id) } }
+        let showing = store.showingHidden.contains(space.id)
+        menu.addAction("Show Hidden", checked: showing, enabled: showing || store.hiddenCount(space: space.id) > 0) {
+            store.setShowingHidden(!showing, space: space.id)
         }
         menu.addItem(.separator())
         menu.addAction("Zoom In", key: "+", enabled: space.zoom < Zoom.steps.last!) { store.zoomIn(group: space.id) }
@@ -591,6 +600,7 @@ struct BlockRow: View {
     var onGripEnded: (DragGesture.Value) -> Void = { _ in }
 
     @Environment(\.zoom) private var z
+    @Environment(\.showsHidden) private var showsHidden
     @Environment(\.colorScheme) private var scheme
     @State private var copied = false
     @State private var tagsText = ""
@@ -611,6 +621,7 @@ struct BlockRow: View {
         Group {
             if isEditing { editor } else { display }
         }
+        .opacity(block.isHidden ? 0.5 : 1)
         .padding(.horizontal, 8 * z)
         .padding(.vertical, 3 * z)
         .frame(minHeight: Metrics.rowHeight * z)
@@ -679,6 +690,12 @@ struct BlockRow: View {
 
     private var actions: some View {
         HStack(spacing: 0) {
+            if showsHidden {
+                IconButton(symbol: block.isHidden ? "eye.slash.circle" : "eye.circle",
+                           label: block.isHidden ? "Show entity" : "Hide entity",
+                           help: block.isHidden ? "Hidden: click to show this entity" : "Click to hide this entity",
+                           tint: block.isHidden ? Palette.blue : nil) { store.setHidden(!block.isHidden, block: block.id) }
+            }
             if block.isMasked {
                 IconButton(symbol: revealed ? "eye.slash" : "eye",
                            label: revealed ? "Hide content" : "Reveal content") { store.toggleReveal(block.id) }
@@ -708,7 +725,7 @@ struct BlockRow: View {
     private func siblings() -> (stick: UUID, ids: [UUID])? {
         guard let l = store.locate(block: block.id) else { return nil }
         let stick = store.state.groups[l.group].sticks[l.stick]
-        return (stick.id, stick.blocks.filter { !$0.isHidden }.map(\.id))
+        return (stick.id, (showsHidden ? stick.blocks : stick.blocks.filter { !$0.isHidden }).map(\.id))
     }
 
     private func canMove(_ delta: Int) -> Bool {
@@ -736,7 +753,7 @@ struct BlockRow: View {
         menu.addAction("Move Up", enabled: canMove(-1)) { move(-1) }
         menu.addAction("Move Down", enabled: canMove(1)) { move(1) }
         menu.addItem(.separator())
-        menu.addAction("Hide Entity") { store.setHidden(true, block: block.id) }
+        menu.addAction(block.isHidden ? "Show Entity" : "Hide Entity") { store.setHidden(!block.isHidden, block: block.id) }
         menu.addAction("Mask Content", checked: block.isMasked) { store.setMasked(!block.isMasked, block: block.id) }
         menu.addItem(.separator())
         menu.addAction("Delete Entity", destructive: true) { store.deleteBlock(block.id) }
@@ -777,7 +794,7 @@ struct BlockRow: View {
                     .help("Delete this entity (undo with ⌘Z)")
                     .accessibilityLabel("Delete entity")
                     Button { store.editingBlock = nil } label: {
-                        Text("Done")
+                        Text("Save")
                             .font(.system(size: 11 * z, weight: .medium))
                             .foregroundStyle(.white)
                             .padding(.horizontal, 12 * z)
@@ -786,8 +803,8 @@ struct BlockRow: View {
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
-                    .help("Finish editing (⌘↩ or Esc)")
-                    .accessibilityLabel("Done editing")
+                    .help("Save (⌘↩ or Esc)")
+                    .accessibilityLabel("Save")
                 }
             }
             .padding(.bottom, 2 * z)
@@ -824,7 +841,7 @@ struct BlockRow: View {
         }
     }
 
-    /// Height shared by the type picker and the Done button so they line up.
+    /// Height shared by the type picker and the Save button so they line up.
     private static let controlHeight: CGFloat = 20
 
     private static let typeSymbols: [BlockType: String] = [
@@ -837,13 +854,12 @@ struct BlockRow: View {
             ForEach(BlockType.allCases, id: \.self) { type in
                 let selected = block.type == type
                 Button { store.setType(type, block: block.id) } label: {
-                    HStack(spacing: 4 * z) {
-                        Image(systemName: Self.typeSymbols[type] ?? "questionmark").font(.system(size: 10 * z))
-                    }
-                    .foregroundStyle(selected ? Color.white : Color.primary)
-                    .fixedSize()
-                    .padding(.horizontal, 11 * z)
-                    .frame(height: Self.controlHeight * z)
+                    Image(systemName: Self.typeSymbols[type] ?? "questionmark")
+                        .font(.system(size: 10.5 * z))
+                        .frame(width: 14 * z, height: 14 * z)
+                        .foregroundStyle(selected ? Color.white : Color.primary)
+                        // Same box for every type, whatever the glyph's own width.
+                        .frame(width: 36 * z, height: Self.controlHeight * z)
                     .background(selected ? Palette.blue : Color.clear)
                     .contentShape(Rectangle())
                 }
@@ -882,57 +898,5 @@ struct ContextMenuArea: NSViewRepresentable {
         override func mouseDown(with event: NSEvent) {
             if event.modifierFlags.contains(.control) { pop(event) } else { super.mouseDown(with: event) }
         }
-    }
-}
-
-// MARK: - Entities popover
-
-struct SectionsPopover: View {
-    @ObservedObject var store: AppStore
-    let stickID: UUID
-
-    var body: some View {
-        let blocks = store.stick(stickID)?.blocks ?? []
-        VStack(alignment: .leading, spacing: 0) {
-            if blocks.isEmpty {
-                Text("No entities yet.").foregroundStyle(.secondary).padding(12)
-            }
-            ForEach(blocks) { b in
-                HStack(spacing: 6) {
-                    Toggle(isOn: Binding(get: { !b.isHidden }, set: { store.setHidden(!$0, block: b.id) })) {
-                        Text(verbatim: b.menuTitle).lineLimit(1)
-                    }
-                    .toggleStyle(.checkbox)
-                    .accessibilityLabel(b.menuTitle)
-                    Spacer(minLength: 8)
-                    Menu {
-                        Button(b.isHidden ? "Show Entity" : "Hide Entity") { store.setHidden(!b.isHidden, block: b.id) }
-                        Button("Delete Entity", role: .destructive) { store.deleteBlock(b.id) }
-                    } label: {
-                        Image(systemName: "ellipsis")
-                    }
-                    .menuStyle(.borderlessButton)
-                    .menuIndicator(.hidden)
-                    .fixedSize()
-                    .accessibilityLabel("Entity actions")
-                }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 5)
-            }
-            Divider().padding(.top, 4)
-            HStack {
-                Text("Hidden entities can also be deleted from here.")
-                    .font(.caption).foregroundStyle(.secondary)
-                Spacer(minLength: 6)
-                Button { NSApp.activate(ignoringOtherApps: true); store.addBlock(to: stickID) } label: { Image(systemName: "plus") }
-                    .buttonStyle(.borderless)
-                    .help("Add entity")
-                    .accessibilityLabel("Add entity")
-            }
-            .padding(.horizontal, 12)
-            .padding(.vertical, 8)
-        }
-        .frame(width: 270)
-        .padding(.top, 6)
     }
 }

@@ -280,6 +280,12 @@ struct AboutView: View {
             "Tags are short labels such as prod, stg or dev, shown as coloured chips. Separate several with commas.",
             "Tags you already use are offered as one-click suggestions while editing.",
         ]),
+        Topic(title: "Hidden Items", symbol: "eye.slash", bullets: [
+            "Hide Group and Hide Entity (right-click) tuck things away without deleting them.",
+            "When a space has hidden items, an eye button appears in its header. Click it to list them, dimmed, in place.",
+            "While they are listed, every group and entity has an eye: click it to hide or bring it back. Click the header eye again to hide them from view.",
+            "Hidden items can still be reordered and deleted while listed. Open All and Export skip hidden entities.",
+        ]),
         Topic(title: "Sensitive Content", symbol: "eye", bullets: [
             "Mask Content shows •••••••• instead of the text, whatever its length. A title, if set, stays visible.",
             "The eye reveals it temporarily. It hides again when you press the eye, the window loses focus, or the group collapses.",
@@ -293,8 +299,8 @@ struct AboutView: View {
             "Pinning never takes keyboard focus.",
         ]),
         Topic(title: "Context Menus", symbol: "contextualmenu.and.cursorarrow", bullets: [
-            "Right-click the space header for Rename, Add Group, Show Hidden Groups, zoom, Import Group, Export Space, Hide and Delete.",
-            "Right-click a group for Rename, Hide, Entities…, Add Group Above/Below, Show Hidden Groups…, Import Group, Export Group and Delete.",
+            "Right-click the space header for Rename, Add Group, Show Hidden, zoom, Import Group, Export Space, Hide Space and Delete Space.",
+            "Right-click a group for Rename, Hide Group, Add Group Above/Below, Import Group, Export Group and Delete Group.",
             "Right-click an entity for Edit, Copy, Type, Move Up/Down, Hide Entity, Mask Content and Delete Entity.",
             "Link buttons: click opens in the browser; ⌘-click opens in the background so Stickspace stays active.",
             "The arrow in a group's title row opens all of its visible, non-sensitive links, once each.",

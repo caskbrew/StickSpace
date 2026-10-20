@@ -2,7 +2,15 @@ import SwiftUI
 
 private struct ZoomKey: EnvironmentKey { static let defaultValue: CGFloat = 1 }
 
+private struct ShowsHiddenKey: EnvironmentKey { static let defaultValue = false }
+
 extension EnvironmentValues {
+    /// True while the space lists its hidden groups and entities (dimmed, with an eye to bring them back).
+    var showsHidden: Bool {
+        get { self[ShowsHiddenKey.self] }
+        set { self[ShowsHiddenKey.self] = newValue }
+    }
+
     /// Per-group scale. Every size in the group UI is multiplied by this instead of using scaleEffect, so text stays crisp.
     var zoom: CGFloat {
         get { self[ZoomKey.self] }

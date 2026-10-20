@@ -381,6 +381,21 @@ final class StoreTests: XCTestCase {
         XCTAssertEqual(s.state.groups[0].sticks.count, 1)
     }
 
+    func testReorderWithHiddenItemsListed() {
+        let s = AppStore()
+        let blocks = [Block(text: "1"), Block(text: "H", isHidden: true), Block(text: "2")]
+        let stick = Stick(name: "S", blocks: blocks)
+        s.state.groups = [StickGroup(sticks: [stick, Stick(name: "X", isHidden: true), Stick(name: "Y")])]
+        s.setBlockOrder([blocks[2].id, blocks[1].id, blocks[0].id], stick: stick.id)   // every entity, hidden included
+        XCTAssertEqual(s.state.groups[0].sticks[0].blocks.map(\.text), ["2", "H", "1"])
+        let ids = s.state.groups[0].sticks.map(\.id)
+        s.setVisibleOrder([ids[2], ids[1], ids[0]], group: s.state.groups[0].id)
+        XCTAssertEqual(s.state.groups[0].sticks.map(\.name), ["Y", "X", "S"])
+        s.setVisibleOrder([ids[0], ids[2]], group: s.state.groups[0].id)   // visible only: X stays in its slot
+        XCTAssertEqual(s.state.groups[0].sticks.map(\.name), ["S", "X", "Y"])
+        XCTAssertEqual(s.hiddenCount(space: s.state.groups[0].id), 2)
+    }
+
     func testBlockReorderKeepsHiddenSectionsInPlace() {
         let s = AppStore()
         let blocks = [Block(text: "1"), Block(text: "H", isHidden: true), Block(text: "2"), Block(text: "3")]
