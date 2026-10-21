@@ -26,8 +26,15 @@ enum SyncService {
     // MARK: Reading
 
     static func readSpace(_ source: GitSource, repo: GitRepo) throws -> SpaceRead {
+        guard let read = try readSpace(source, repo: repo, tolerateMissing: false) else { throw GitError(message: "Nothing to read.") }
+        return read
+    }
+
+    /// With `tolerateMissing` a space file that is not there yet (an unmerged export) gives nil instead of an error.
+    static func readSpace(_ source: GitSource, repo: GitRepo, tolerateMissing: Bool) throws -> SpaceRead? {
         let head = try repo.fetch(ref: source.ref)
         guard let text = try repo.read(source.path, at: head.sha) else {
+            if tolerateMissing { return nil }
             throw GitError(message: "“\(source.path)” was not found on “\(source.ref)”.")
         }
         let decoded: (name: String, entries: [Interchange.SpaceEntry])
@@ -75,7 +82,9 @@ enum SyncService {
     /// Reads every source a space depends on.
     static func fetch(space: StickGroup, repoFor: RepoFor) throws -> Fetched {
         var fetched = Fetched()
-        if let source = space.source { fetched.space = try readSpace(source, repo: repoFor(source)) }
+        if let source = space.source {
+            fetched.space = try readSpace(source, repo: repoFor(source), tolerateMissing: source.isAwaitingMerge)
+        }
         for stick in space.sticks {
             guard let source = stick.origin?.source else { continue }
             fetched.singles[stick.id] = try readGroup(source, repo: repoFor(source), required: false)
@@ -88,8 +97,13 @@ enum SyncService {
         var sources: [GitSource] = space.source.map { [$0] } ?? []
         sources += space.sticks.compactMap { $0.origin?.source }
         for source in sources {
-            let head = try repoFor(source).fetch(ref: source.ref)
-            if head.sha != source.appliedHead { return true }
+            let repo = repoFor(source)
+            let head = try repo.fetch(ref: source.ref)
+            if source.isAwaitingMerge {
+                if try repo.read(source.path, at: head.sha) != nil { return true }   // the merge request was merged
+            } else if head.sha != source.appliedHead {
+                return true
+            }
         }
         return false
     }
@@ -116,15 +130,34 @@ enum SyncService {
         var summaries: [PushSummary] = []
         for plan in SyncPush.plans(space: space, spaceFile: spaceFile) {
             let repo = repoFor(plan.source)
-            let stamp = DateFormatter()
-            stamp.dateFormat = "yyyyMMdd-HHmmss"
-            stamp.locale = Locale(identifier: "en_US_POSIX")
-            let branch = "stickspace/\(slug(user))-\(stamp.string(from: now))"
+            let branch = branchName(user: user, now: now)
             let message = "Update \(plan.groups.joined(separator: ", ")) (StickSpace)"
             let result = try repo.push(files: plan.files, ref: plan.source.ref, direct: plan.source.directPush, message: message, branchName: branch)
             summaries.append(PushSummary(url: plan.source.url, ref: plan.source.ref, groups: plan.groups, result: result))
         }
         return summaries
+    }
+
+    static func branchName(user: String, now: Date) -> String {
+        let stamp = DateFormatter()
+        stamp.dateFormat = "yyyyMMdd-HHmmss"
+        stamp.locale = Locale(identifier: "en_US_POSIX")
+        return "stickspace/\(slug(user))-\(stamp.string(from: now))"
+    }
+
+    /// Writes new files to the repository on a feature branch (or straight to `ref`). Never overwrites a file that is
+    /// already there with different content: that is somebody else's.
+    static func export(_ plan: SyncExport.Plan, source: GitSource, repoFor: RepoFor, user: String, now: Date = Date()) throws -> GitRepo.PushResult? {
+        let repo = repoFor(source)
+        let head = try repo.fetch(ref: source.ref)
+        for (path, text) in plan.files.sorted(by: { $0.key < $1.key }) {
+            if let existing = try repo.read(path, at: head.sha), existing != text {
+                throw GitError(message: "“\(path)” already exists on “\(source.ref)”. Import it instead, or choose another path.")
+            }
+        }
+        let message = "Add \(plan.groupNames.joined(separator: ", ")) (StickSpace)"
+        return try repo.push(files: plan.files, ref: source.ref, direct: source.directPush, message: message,
+                             branchName: branchName(user: user, now: now))
     }
 
     static func slug(_ text: String) -> String {
@@ -174,5 +207,56 @@ enum SyncPush {
             add(source, path: origin.file ?? source.path, text: Interchange.encodeGroupFile(shared(stick)), groups: [stick.name])
         }
         return order.compactMap { byKey[$0] }
+    }
+}
+
+/// What an export writes: custom groups, without masked entities, as a space file or a group file.
+enum SyncExport {
+    struct Plan: Equatable {
+        /// Repository path → file text.
+        var files: [String: String] = [:]
+        /// Each exported group → its own file, or nil when it is written inline in the space file.
+        var groupFiles: [UUID: String?] = [:]
+        var groupNames: [String] = []
+    }
+
+    static func shared(_ s: Stick) -> Stick { Stick(id: s.id, name: s.name, blocks: s.blocks.filter { !$0.isMasked }) }
+
+    /// The source to remember after an export. A branch with a merge request is "awaiting merge": the files are not on
+    /// `ref` yet and Sync must not take that for a deletion. A direct push, or contents that were already there, are not.
+    static func bound(_ source: GitSource, result: GitRepo.PushResult?) -> GitSource {
+        var bound = source
+        bound.appliedHead = result?.direct == true ? result?.commit : nil
+        bound.awaitingMerge = result?.direct == false ? true : nil
+        return bound
+    }
+
+    static func groupPlan(_ stick: Stick, path: String) -> Plan {
+        Plan(files: [path: Interchange.encodeGroupFile(shared(stick))], groupFiles: [stick.id: path], groupNames: [stick.name])
+    }
+
+    static func spacePlan(name: String, sticks: [Stick], path: String, separateFiles: Bool) -> Plan {
+        var plan = Plan()
+        let dir = (path as NSString).deletingLastPathComponent
+        var entries: [Interchange.SpaceEntry] = []
+        var used = Set<String>()
+        for stick in sticks {
+            plan.groupNames.append(stick.name)
+            guard separateFiles else {
+                entries.append(.inline(shared(stick)))
+                plan.groupFiles[stick.id] = .some(nil)
+                continue
+            }
+            let base = SyncService.slug(stick.name)
+            var relative = "groups/\(base).json"
+            var n = 2
+            while !used.insert(relative).inserted { relative = "groups/\(base)-\(n).json"; n += 1 }
+            let full = dir.isEmpty ? relative : dir + "/" + relative
+            plan.files[full] = Interchange.encodeGroupFile(shared(stick))
+            plan.groupFiles[stick.id] = full
+            entries.append(.file(relative))
+        }
+        plan.files[path] = Interchange.encodeSpaceFile(name: name, entries: entries)
+        return plan
     }
 }

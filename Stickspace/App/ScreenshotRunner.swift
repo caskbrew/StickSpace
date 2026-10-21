@@ -262,6 +262,8 @@ final class ScreenshotRunner {
                 ("window-import-error", "import", { self.helpers.showImport(group: nil, index: nil, initialText: "{\n  \"sticks\": [\n    { oops }\n  ]\n}") }),
                 ("window-import-git-space", "import", { self.helpers.showImport(group: nil, index: nil, tab: .git) }),
                 ("window-import-git-file", "import", { self.helpers.showImport(group: gid, index: nil, tab: .git) }),
+                ("window-export-git-group", "export", { self.helpers.showExport(stick: stickID, tab: .git) }),
+                ("window-export-git-space", "export", { self.helpers.showExport(stick: stickID, wholeSpace: true, tab: .git) }),
                 ("window-export-group", "export", { self.helpers.showExport(stick: stickID) }),
                 ("window-export-space", "export", { self.helpers.showExport(stick: stickID, wholeSpace: true) }),
                 ("window-export-sensitive", "export", { self.helpers.showExport(stick: stickID, includeSensitive: true) }),

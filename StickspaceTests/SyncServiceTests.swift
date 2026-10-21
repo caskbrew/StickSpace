@@ -217,4 +217,139 @@ final class SyncServiceTests: GitTestCase {
         XCTAssertFalse(store.stick(clusterID)!.isModified)
         _ = id
     }
+
+    // MARK: Export
+
+    private func customSpace() -> (AppStore, UUID, Stick, Stick) {
+        let a = Stick(id: UUID(), name: "Grafana & co", blocks: [
+            Block(type: .link, text: "https://grafana.example.com", title: "Grafana", tags: ["prod"]),
+            Block(type: .text, text: "hunter2", isMasked: true),
+        ])
+        let b = Stick(id: UUID(), name: "Grafana & co!", blocks: [Block(type: .text, text: "kubectl get pods")])
+        let hidden = Stick(id: UUID(), name: "Private", blocks: [Block(text: "x")], isHidden: true)
+        let store = AppStore()
+        let id = store.addSpace(name: "Platform team", groups: [a, b, hidden])
+        return (store, id, a, b)
+    }
+
+    func testExportPlansInlineAndSeparateFiles() throws {
+        let (_, _, a, b) = customSpace()
+        let inline = SyncExport.spacePlan(name: "P", sticks: [a, b], path: "platform/stickspace.json", separateFiles: false)
+        XCTAssertEqual(Set(inline.files.keys), ["platform/stickspace.json"])
+        XCTAssertEqual(inline.groupFiles[a.id], .some(nil))
+        XCTAssertFalse(inline.files.values.joined().contains("hunter2"), "masked entities are never written")
+        let separate = SyncExport.spacePlan(name: "P", sticks: [a, b], path: "platform/stickspace.json", separateFiles: true)
+        XCTAssertEqual(Set(separate.files.keys), ["platform/stickspace.json", "platform/groups/grafana-co.json", "platform/groups/grafana-co-2.json"])
+        XCTAssertEqual(separate.groupFiles[b.id], .some("platform/groups/grafana-co-2.json"))
+        let decoded = try Interchange.decodeSpaceFile(try XCTUnwrap(separate.files["platform/stickspace.json"]))
+        XCTAssertEqual(decoded.entries, [.file("groups/grafana-co.json"), .file("groups/grafana-co-2.json")])
+        let top = SyncExport.spacePlan(name: "P", sticks: [a], path: "stickspace.json", separateFiles: true)
+        XCTAssertEqual(Set(top.files.keys), ["stickspace.json", "groups/grafana-co.json"])
+        let one = SyncExport.groupPlan(a, path: "g/a.json")
+        XCTAssertEqual(Set(one.files.keys), ["g/a.json"])
+    }
+
+    func testExportSpaceThroughAFeatureBranchThenMergeThenImport() throws {
+        let (store, id, a, b) = customSpace()
+        let target = GitSource(url: bare.path, path: "platform/stickspace.json", ref: "main")
+        try upstreamCommit(["README.md": "hello"])
+        let sticks = space(store, id).sticks.filter { !$0.isHidden && $0.origin == nil }
+        let plan = SyncExport.spacePlan(name: "Platform team", sticks: sticks, path: target.path, separateFiles: true)
+        let result = try XCTUnwrap(try SyncService.export(plan, source: target, repoFor: repoFor(), user: "Anna"))
+        XCTAssertFalse(result.direct)
+        XCTAssertEqual(try runner.output(["ls-tree", "-r", "--name-only", "main"], in: bare), "README.md", "main is untouched")
+        XCTAssertEqual(try runner.output(["ls-tree", "-r", "--name-only", result.branch], in: bare).split(separator: "\n").count, 4)
+
+        let bound = SyncExport.bound(target, result: result)
+        XCTAssertEqual(bound.awaitingMerge, true)
+        store.bindExportedSpace(id, source: bound, files: plan.groupFiles)
+        XCTAssertEqual(space(store, id).sticks.map { $0.origin != nil }, [true, true, false], "the hidden group stays custom")
+        XCTAssertFalse(space(store, id).sticks[0].isModified)
+        XCTAssertEqual(space(store, id).sticks[0].blocks.count, 2, "the masked entity stays here")
+
+        // Before the merge: Sync changes nothing and says it is waiting; there are no "updates".
+        XCTAssertFalse(try SyncService.hasUpdates(space: space(store, id), repoFor: repoFor()))
+        var report = store.applySync(space: id, fetched: try SyncService.fetch(space: space(store, id), repoFor: repoFor()))
+        XCTAssertEqual(report.waiting, 1)
+        XCTAssertEqual(space(store, id).sticks.count, 3)
+        XCTAssertTrue(space(store, id).source?.isAwaitingMerge == true)
+
+        // The merge request is merged.
+        try runner.run(["update-ref", "refs/heads/main", result.commit], in: bare)
+        XCTAssertTrue(try SyncService.hasUpdates(space: space(store, id), repoFor: repoFor()))
+        report = store.applySync(space: id, fetched: try SyncService.fetch(space: space(store, id), repoFor: repoFor()))
+        XCTAssertEqual(report.waiting, 0)
+        XCTAssertEqual(report.conflicts, 0)
+        XCTAssertNil(space(store, id).source?.awaitingMerge)
+        XCTAssertNotNil(space(store, id).source?.appliedHead)
+        XCTAssertEqual(space(store, id).sticks.map(\.id), [a.id, b.id, space(store, id).sticks[2].id])
+        XCTAssertFalse(try SyncService.hasUpdates(space: space(store, id), repoFor: repoFor()))
+        XCTAssertEqual(space(store, id).sticks[0].blocks.last?.text, "hunter2")
+
+        // A teammate imports it: same ids, nothing about the masked entity.
+        let mate = AppStore()
+        let read = try SyncService.readSpace(target, repo: repoFor()(target))
+        let mateID = try mate.importSpace(read, source: target)
+        XCTAssertEqual(space(mate, mateID).name, "Platform team")
+        XCTAssertEqual(space(mate, mateID).sticks.map(\.id), [a.id, b.id])
+        XCTAssertEqual(space(mate, mateID).sticks[0].blocks.map(\.text), ["https://grafana.example.com"])
+        // ...and the exporter cannot import its own groups a second time.
+        XCTAssertThrowsError(try store.importSpace(read, source: target))
+    }
+
+    func testExportOneGroupAndWaitForTheMerge() throws {
+        let (store, id, a, _) = customSpace()
+        let target = GitSource(url: bare.path, path: "groups/grafana.json", ref: "main")
+        try upstreamCommit(["README.md": "hello"])
+        let plan = SyncExport.groupPlan(a, path: target.path)
+        let result = try XCTUnwrap(try SyncService.export(plan, source: target, repoFor: repoFor(), user: "Anna"))
+        store.bindExportedGroup(a.id, source: SyncExport.bound(target, result: result))
+        XCTAssertEqual(store.stick(a.id)?.origin?.file, "groups/grafana.json")
+        XCTAssertFalse(store.stick(a.id)!.isModified)
+
+        var report = store.applySync(space: id, fetched: try SyncService.fetch(space: space(store, id), repoFor: repoFor()))
+        XCTAssertEqual(report.waiting, 1)
+        XCTAssertNotNil(store.stick(a.id), "an unmerged export is not a deletion")
+        XCTAssertFalse(try SyncService.hasUpdates(space: space(store, id), repoFor: repoFor()))
+
+        try runner.run(["update-ref", "refs/heads/main", result.commit], in: bare)
+        XCTAssertTrue(try SyncService.hasUpdates(space: space(store, id), repoFor: repoFor()))
+        report = store.applySync(space: id, fetched: try SyncService.fetch(space: space(store, id), repoFor: repoFor()))
+        XCTAssertEqual(report.waiting, 0)
+        XCTAssertNil(store.stick(a.id)?.origin?.source?.awaitingMerge)
+        XCTAssertNotNil(store.stick(a.id)?.origin)
+    }
+
+    func testExportNeverOverwritesSomeoneElsesFile() throws {
+        let (_, _, a, _) = customSpace()
+        let target = GitSource(url: bare.path, path: "groups/grafana.json", ref: "main")
+        try upstreamCommit(["groups/grafana.json": "{\"somebody\":\"else\"}"])
+        XCTAssertThrowsError(try SyncService.export(SyncExport.groupPlan(a, path: target.path), source: target, repoFor: repoFor(), user: "a")) {
+            XCTAssertTrue(($0 as? GitError)?.message.contains("already exists") == true)
+        }
+        XCTAssertEqual(try runner.output(["branch", "--list", "stickspace/*"], in: bare), "")
+        // The same content is fine: nothing to push, and the group is simply linked.
+        try upstreamCommit(["groups/grafana.json": SyncExport.groupPlan(a, path: target.path).files[target.path]!])
+        let same = try SyncService.export(SyncExport.groupPlan(a, path: target.path), source: target, repoFor: repoFor(), user: "a")
+        XCTAssertNil(same)
+        XCTAssertNil(SyncExport.bound(target, result: same).awaitingMerge)
+    }
+
+    func testDirectExportWritesToTheBranchAndIsImmediatelySynced() throws {
+        let (store, id, a, _) = customSpace()
+        var target = GitSource(url: bare.path, path: "stickspace.json", ref: "main")
+        target.directPush = true
+        try upstreamCommit(["README.md": "hello"])
+        let sticks = [a]
+        let plan = SyncExport.spacePlan(name: "Platform team", sticks: sticks, path: target.path, separateFiles: false)
+        let result = try XCTUnwrap(try SyncService.export(plan, source: target, repoFor: repoFor(), user: "a"))
+        XCTAssertEqual(try runner.output(["rev-parse", "main"], in: bare), result.commit)
+        let bound = SyncExport.bound(target, result: result)
+        XCTAssertNil(bound.awaitingMerge)
+        XCTAssertEqual(bound.appliedHead, result.commit)
+        store.bindExportedSpace(id, source: bound, files: plan.groupFiles)
+        let report = store.applySync(space: id, fetched: try SyncService.fetch(space: space(store, id), repoFor: repoFor()))
+        XCTAssertTrue(report.isEmpty)
+    }
 }
+

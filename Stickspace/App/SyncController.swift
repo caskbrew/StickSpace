@@ -55,6 +55,49 @@ final class SyncController: ObservableObject {
         }
     }
 
+    // MARK: Export
+
+    /// Publishes a space's visible custom groups, then ties them to the new files.
+    func exportSpace(_ id: UUID, source: GitSource, separateFiles: Bool, done: @escaping (Result<Void, Error>) -> Void) {
+        guard let git = GitRunner.locate() else { return done(.failure(GitError(message: GitRunner.missingMessage))) }
+        guard let space = store.groupIndex(id).map({ store.state.groups[$0] }) else { return done(.failure(GitError(message: "The space is gone."))) }
+        let sticks = space.sticks.filter { !$0.isHidden && $0.origin == nil }
+        guard space.source == nil, !sticks.isEmpty else { return done(.failure(GitError(message: "There is nothing to export."))) }
+        let plan = SyncExport.spacePlan(name: space.name, sticks: sticks, path: source.path, separateFiles: separateFiles)
+        run(plan, source: source, git: git, done: done) { bound in self.store.bindExportedSpace(id, source: bound, files: plan.groupFiles) }
+    }
+
+    func exportGroup(_ id: UUID, source: GitSource, done: @escaping (Result<Void, Error>) -> Void) {
+        guard let git = GitRunner.locate() else { return done(.failure(GitError(message: GitRunner.missingMessage))) }
+        guard let stick = store.stick(id), stick.origin == nil else { return done(.failure(GitError(message: "There is nothing to export."))) }
+        let plan = SyncExport.groupPlan(stick, path: source.path)
+        run(plan, source: source, git: git, done: done) { bound in self.store.bindExportedGroup(id, source: bound) }
+    }
+
+    private func run(_ plan: SyncExport.Plan, source: GitSource, git: String, done: @escaping (Result<Void, Error>) -> Void,
+                     bind: @escaping (GitSource) -> Void) {
+        let repoFor = repoFor(git)
+        queue.async {
+            do {
+                let user = (try? GitRunner(gitPath: git).output(["config", "user.name"])).flatMap { $0.isEmpty ? nil : $0 } ?? NSUserName()
+                let result = try SyncService.export(plan, source: source, repoFor: repoFor, user: user)
+                DispatchQueue.main.async {
+                    bind(SyncExport.bound(source, result: result))
+                    done(.success(()))
+                    self.onMessage("Exported", Self.describeExport(result, groups: plan.groupNames), result?.link)
+                    self.check()
+                }
+            } catch { DispatchQueue.main.async { done(.failure(error)) } }
+        }
+    }
+
+    static func describeExport(_ result: GitRepo.PushResult?, groups: [String]) -> String {
+        let what = groups.joined(separator: ", ")
+        guard let result else { return "The repository already has \(what). It is now linked to this one." }
+        if result.direct { return "Wrote \(what) to \(result.branch). Others can import it now." }
+        return "Pushed \(what) to the branch \(result.branch). Merge the request; then others can import it (Import → GIT), and Sync here will find it."
+    }
+
     // MARK: Sync and push
 
     func hasSources(_ space: StickGroup) -> Bool { space.source != nil || space.sticks.contains { $0.origin?.source != nil } }
@@ -134,6 +177,7 @@ final class SyncController: ObservableObject {
         if r.updated > 0 { parts.append("\(r.updated) updated") }
         if r.removed > 0 { parts.append("\(r.removed) removed") }
         if r.detached > 0 { parts.append("\(r.detached) kept as custom (deleted upstream)") }
+        if r.waiting > 0 { parts.append("waiting for a merge request to be merged") }
         var text = parts.joined(separator: ", ") + "."
         if r.conflicts > 0 {
             text += "\n\(r.conflicts) item\(r.conflicts == 1 ? " was" : "s were") changed on both sides: yours \(r.conflicts == 1 ? "was" : "were") kept. Use Revert in the group or entity menu to take the repository's version."

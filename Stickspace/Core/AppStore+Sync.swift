@@ -56,18 +56,48 @@ extension AppStore {
             let merged = SyncMerge.mergeSpace(space, remote: read.groups, head: read.head)
             space = merged.space
             report = merged.report
+        } else if space.source?.isAwaitingMerge == true {
+            report.waiting += 1
         }
         var sticks: [Stick] = []
         for stick in space.sticks {
-            guard stick.origin?.source != nil, let single = fetched.singles[stick.id] else { sticks.append(stick); continue }
+            guard let source = stick.origin?.source, let single = fetched.singles[stick.id] else { sticks.append(stick); continue }
+            if source.isAwaitingMerge && single.group == nil {            // exported, not merged yet: leave it alone
+                report.waiting += 1
+                sticks.append(stick)
+                continue
+            }
             var result = SyncMerge.merge(stick, remote: single.group?.snapshot)
             result.stick?.origin?.source?.appliedHead = single.head
+            result.stick?.origin?.source?.awaitingMerge = nil
             SyncMerge.tally(result.outcome, into: &report)
             if let merged = result.stick { sticks.append(merged) }
         }
         space.sticks = sticks
         state.groups[g] = space
         return report
+    }
+
+    // MARK: Export (the other way round: what is here becomes the shared version)
+
+    /// After an export, the exported groups are tied to the new files, so Sync and Push work on them from now on.
+    /// `files` maps each exported group to its own file, or nil when it was written inline in the space file.
+    func bindExportedSpace(_ id: UUID, source: GitSource, files: [UUID: String?]) {
+        guard let g = groupIndex(id) else { return }
+        state.groups[g].source = source
+        for s in state.groups[g].sticks.indices {
+            let stick = state.groups[g].sticks[s]
+            guard let file = files[stick.id] else { continue }
+            let exported = Stick(id: stick.id, name: stick.name, blocks: stick.blocks.filter { !$0.isMasked })
+            state.groups[g].sticks[s].origin = GroupOrigin(source: nil, file: file, base: GroupSnapshot(exported))
+        }
+    }
+
+    func bindExportedGroup(_ id: UUID, source: GitSource) {
+        guard let l = locate(stick: id) else { return }
+        let stick = state.groups[l.group].sticks[l.stick]
+        let exported = Stick(id: stick.id, name: stick.name, blocks: stick.blocks.filter { !$0.isMasked })
+        state.groups[l.group].sticks[l.stick].origin = GroupOrigin(source: source, file: source.path, base: GroupSnapshot(exported))
     }
 
     // MARK: Revert (= take the repository's version)

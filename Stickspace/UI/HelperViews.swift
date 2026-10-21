@@ -100,28 +100,69 @@ struct RenameView: View {
 
 // MARK: - Export
 
+/// One Export window for every menu: copy JSON, or publish to a Git repository. The Space / Group choice is shared by both tabs.
 struct ExportView: View {
+    enum Tab: Hashable { case json, git }
+    enum Scope: Hashable { case space, group }
+
     @ObservedObject var store: AppStore
+    let sync: SyncController
     /// nil: exporting a space from its own menu (no group to pick).
     let stickID: UUID?
     let spaceID: UUID
     let close: () -> Void
 
-    private enum Scope: Hashable { case space, group }
-
+    @State private var tab: Tab
     @State private var scope: Scope
     @State private var includeSensitive: Bool
-    @State private var copied = false
     @Environment(\.colorScheme) private var scheme
 
-    init(store: AppStore, stickID: UUID?, spaceID: UUID, includeSensitive: Bool = false, wholeSpace: Bool = false, close: @escaping () -> Void) {
+    /// The window opens at this size and can be resized; the box takes whatever room is left.
+    static let defaultSize = CGSize(width: 600, height: 500)
+    static let minSize = CGSize(width: 420, height: 320)
+
+    init(store: AppStore, sync: SyncController, stickID: UUID?, spaceID: UUID, includeSensitive: Bool = false, wholeSpace: Bool = false,
+         tab: Tab = .json, close: @escaping () -> Void) {
         self.store = store
+        self.sync = sync
         self.stickID = stickID
         self.spaceID = spaceID
         self.close = close
+        _tab = State(initialValue: tab)
         _scope = State(initialValue: wholeSpace || stickID == nil ? .space : .group)
         _includeSensitive = State(initialValue: includeSensitive)
     }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            AppSegmented(options: [(Tab.json, "JSON"), (Tab.git, "GIT")], selection: $tab)
+            if stickID != nil {
+                AppSegmented(options: [(Scope.space, "Space"), (Scope.group, "Group")], selection: $scope)
+            }
+            Group {
+                if tab == .json {
+                    ExportJSONTab(store: store, stickID: stickID, spaceID: spaceID, scope: scope, includeSensitive: $includeSensitive, close: close)
+                } else {
+                    GitExportTab(store: store, sync: sync, stickID: stickID, spaceID: spaceID, scope: scope, close: close)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
+        }
+        .padding(14)
+        .frame(minWidth: Self.minSize.width, maxWidth: .infinity, minHeight: Self.minSize.height, maxHeight: .infinity)
+        .foregroundStyle(Palette.text(scheme))
+        .stickSurface(radius: 12)
+    }
+}
+
+private struct ExportJSONTab: View {
+    @ObservedObject var store: AppStore
+    let stickID: UUID?
+    let spaceID: UUID
+    let scope: ExportView.Scope
+    @Binding var includeSensitive: Bool
+    let close: () -> Void
+    @State private var copied = false
 
     private var sticks: [Stick] {
         if scope == .space, let g = store.groupIndex(spaceID) { return store.state.groups[g].sticks }
@@ -134,11 +175,7 @@ struct ExportView: View {
     }
 
     var body: some View {
-        // Bare surface (no title row): scope switch, JSON, one option row with the Copy button.
         VStack(alignment: .leading, spacing: 10) {
-            if stickID != nil {
-                AppSegmented(options: [(Scope.space, "Space"), (Scope.group, "Group")], selection: $scope)
-            }
             AppCodeBox { JSONEditor(text: .constant(json), editable: false) }
                 .frame(minHeight: 60, maxHeight: .infinity)
             HStack(alignment: .center) {
@@ -152,15 +189,7 @@ struct ExportView: View {
                 AppNotice(kind: .warning, message: "Masked content will be exported as plain text.")
             }
         }
-        .padding(14)
-        .frame(minWidth: Self.minSize.width, maxWidth: .infinity, minHeight: Self.minSize.height, maxHeight: .infinity)
-        .foregroundStyle(Palette.text(scheme))
-        .stickSurface(radius: 12)
     }
-
-    /// The window opens at this size and can be resized; the JSON box takes whatever room is left.
-    static let defaultSize = CGSize(width: 440, height: 288)
-    static let minSize = CGSize(width: 380, height: 240)
 
     private func copy() {
         let pb = NSPasteboard.general
@@ -168,6 +197,96 @@ struct ExportView: View {
         pb.setString(json, forType: .string)
         copied = true
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { copied = false }
+    }
+}
+
+/// Publishes custom groups to a repository on a feature branch (a merge request on GitLab). After the merge, anyone can import them.
+private struct GitExportTab: View {
+    @ObservedObject var store: AppStore
+    let sync: SyncController
+    let stickID: UUID?
+    let spaceID: UUID
+    let scope: ExportView.Scope
+    let close: () -> Void
+
+    @State private var url = ""
+    @State private var path = ""
+    @State private var ref = "main"
+    @State private var key = ""
+    @State private var direct = false
+    @State private var separate = false
+    @State private var working = false
+    @State private var error: String?
+
+    private var space: StickGroup? { store.groupIndex(spaceID).map { store.state.groups[$0] } }
+    private var group: Stick? { stickID.flatMap { store.stick($0) } }
+
+    /// Why this cannot be exported, if it cannot.
+    private var blocker: String? {
+        if scope == .group {
+            guard let group else { return "Nothing to export." }
+            return group.origin != nil ? "This group already comes from Git. Use Push to send its changes." : nil
+        }
+        guard let space else { return "Nothing to export." }
+        if space.source != nil { return "This space is already linked to Git. Use Push to send its changes." }
+        return exportableGroups.isEmpty ? "There are no custom groups to export." : nil
+    }
+
+    private var exportableGroups: [Stick] { (space?.sticks ?? []).filter { !$0.isHidden && $0.origin == nil } }
+
+    private var ready: Bool {
+        blocker == nil && !working && ![url, path, ref].contains { $0.trimmingCharacters(in: .whitespaces).isEmpty }
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            AppTextField(placeholder: "Repository, e.g. git@gitlab.example.com:team/links.git", text: $url, onSubmit: start, autofocus: false)
+            AppTextField(placeholder: scope == .space ? "Space file, e.g. platform/stickspace.json" : "Group file, e.g. platform/groups/grafana.json",
+                         text: $path, onSubmit: start, autofocus: false)
+            HStack(spacing: 8) {
+                AppTextField(placeholder: "Branch to merge into", text: $ref, onSubmit: start, autofocus: false).frame(width: 170)
+                AppTextField(placeholder: "SSH key (optional)", text: $key, onSubmit: start, autofocus: false)
+            }
+            if scope == .space { AppCheckbox(title: "Put each group in its own file", isOn: $separate) }
+            AppCheckbox(title: "Push straight to the branch (no merge request)", isOn: $direct)
+            if let error {
+                AppNotice(kind: .error, message: error)
+            } else if let blocker {
+                AppNotice(kind: .warning, message: blocker)
+            } else {
+                Text(scope == .space
+                     ? "Writes the space and its visible custom groups on a new branch. Masked entities are left out."
+                     : "Writes this group on a new branch. Masked entities are left out.")
+                    .font(.system(size: 12)).foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 0)
+            HStack {
+                Spacer()
+                AppButton(title: "Cancel", action: close).keyboardShortcut(.cancelAction)
+                AppButton(title: working ? "Exporting…" : "Export", style: .primary, enabled: ready, action: start)
+                    .keyboardShortcut(.defaultAction)
+            }
+        }
+    }
+
+    private func start() {
+        guard ready else { return }
+        error = nil
+        working = true
+        var file = path.trimmingCharacters(in: .whitespaces)
+        while file.hasPrefix("/") { file.removeFirst() }
+        let k = key.trimmingCharacters(in: .whitespaces)
+        let source = GitSource(url: url.trimmingCharacters(in: .whitespaces), path: file, ref: ref.trimmingCharacters(in: .whitespaces),
+                               sshKey: k.isEmpty ? nil : (k as NSString).expandingTildeInPath, directPush: direct)
+        let finish: (Result<Void, Error>) -> Void = { result in
+            working = false
+            switch result {
+            case .success: close()
+            case .failure(let e): error = (e as? LocalizedError)?.errorDescription ?? e.localizedDescription
+            }
+        }
+        if scope == .group, let stickID { sync.exportGroup(stickID, source: source, done: finish) }
+        else { sync.exportSpace(spaceID, source: source, separateFiles: separate, done: finish) }
     }
 }
 
@@ -466,6 +585,7 @@ struct AboutView: View {
             "Every Import window has two tabs, JSON and Git. In the Git tab, a space file becomes a new space (menu bar) and a group file is added to the space whose menu you opened.",
             "Groups from Git can be edited here. Sync (space menu) brings in what others changed; yours is kept when you both edited the same entity.",
             "Push sends your changes to a new branch (a merge request on GitLab); it syncs first. A tag cannot be pushed to.",
+            "Export has a GIT tab too: it publishes your custom space or group to a repository on a new branch. After the merge request is merged, others import it, and Sync here picks it up.",
             "Revert (group or entity menu) goes back to the repository's version. Masked entities and custom groups never leave this Mac.",
             "The app checks for updates in the background every few hours; the space menu then says “Sync (updates available)”.",
         ]),

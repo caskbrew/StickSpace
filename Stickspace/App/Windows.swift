@@ -341,16 +341,18 @@ final class HelperWindows: NSObject, NSWindowDelegate {
         }
     }
 
-    func showExport(stick: UUID, includeSensitive: Bool = false, wholeSpace: Bool = false) {
-        guard let space = store.groupID(ofStick: stick) else { return }
+    func showExport(stick: UUID, includeSensitive: Bool = false, wholeSpace: Bool = false, tab: ExportView.Tab = .json) {
+        guard let space = store.groupID(ofStick: stick), let sync else { return }
         presentApp("export", size: ExportView.defaultSize, minSize: ExportView.minSize) { close in
-            ExportView(store: self.store, stickID: stick, spaceID: space, includeSensitive: includeSensitive, wholeSpace: wholeSpace, close: close)
+            ExportView(store: self.store, sync: sync, stickID: stick, spaceID: space, includeSensitive: includeSensitive,
+                       wholeSpace: wholeSpace, tab: tab, close: close)
         }
     }
 
-    func showExport(space: UUID) {
+    func showExport(space: UUID, tab: ExportView.Tab = .json) {
+        guard let sync else { return }
         presentApp("export", size: ExportView.defaultSize, minSize: ExportView.minSize) { close in
-            ExportView(store: self.store, stickID: nil, spaceID: space, close: close)
+            ExportView(store: self.store, sync: sync, stickID: nil, spaceID: space, tab: tab, close: close)
         }
     }
 

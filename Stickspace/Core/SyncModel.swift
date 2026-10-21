@@ -11,6 +11,10 @@ struct GitSource: Equatable, Codable {
     var directPush = false
     /// The commit applied at the last sync.
     var appliedHead: String?
+    /// Exported from here, and the merge request is not merged yet: the file is not on `ref` and that is expected.
+    var awaitingMerge: Bool?
+
+    var isAwaitingMerge: Bool { awaitingMerge == true }
 
     /// Same repository, ref and path: two sources like this would import the same thing twice.
     func sameLocation(as other: GitSource) -> Bool { url == other.url && path == other.path && ref == other.ref }

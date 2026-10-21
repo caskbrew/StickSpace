@@ -22,6 +22,22 @@ Examples of the layouts are in [`docs/examples`](../examples/README.md). This fi
 
 There is no "one inline group out of a space file": hide the groups you do not want (a local choice).
 
+## Export to Git (the way in)
+
+The Export window has two tabs, JSON (copy) and GIT. GIT publishes **custom** groups so that others can import them:
+
+* **Space**: writes a space file with the space's visible custom groups, inline or (option) each in its own file under
+  `groups/`. A space that is already linked to Git, and groups that already come from Git, are not exported: use Push.
+* **Group**: writes one group file at the given path.
+* Masked entities and hidden groups are left out. A file that already exists with different content is never overwritten.
+* The files go to a new branch from the chosen branch (a merge request on GitLab); *direct push* writes straight to it.
+* Afterwards the exported groups are **linked** to the new files, so Sync and Push work on them like on imported ones.
+  Until the merge request is merged the files are not on the branch yet: that state is remembered
+  (`awaitingMerge`), Sync reports "waiting for a merge request" instead of treating the groups as deleted, and the
+  background check does not call it an update. When the files appear, the next sync clears the flag.
+* After the merge, a teammate imports it (Import → GIT). The ids are the same ones the exporter has, so the exporter
+  cannot import it a second time.
+
 ## What is shared and what is local
 
 Shared (in Git): space name, group list and order, group names, entities (type, text/url, title, tags) and their order.

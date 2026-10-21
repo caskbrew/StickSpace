@@ -27,7 +27,9 @@ enum SyncMerge {
 
     struct SpaceReport: Equatable {
         var added = 0, updated = 0, removed = 0, detached = 0, conflicts = 0
-        var isEmpty: Bool { added + updated + removed + detached + conflicts == 0 }
+        /// Exported groups whose merge request is not merged yet.
+        var waiting = 0
+        var isEmpty: Bool { added + updated + removed + detached + conflicts + waiting == 0 }
     }
 
     // MARK: One group
@@ -173,6 +175,7 @@ enum SyncMerge {
         }
         out.sticks = sticks
         out.source?.appliedHead = head
+        out.source?.awaitingMerge = nil
         return (out, report)
     }
 
