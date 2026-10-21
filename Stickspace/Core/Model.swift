@@ -133,7 +133,11 @@ enum SpaceWidth {
 }
 
 enum Zoom {
-    static let steps: [Double] = [0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.25, 1.5, 1.75, 2.0]
+    /// 60% to 200% in steps of 10%.
+    static let steps: [Double] = (6...20).map { Double($0) / 10 }
+
+    /// Older files could hold 125% and the like: round to the nearest step.
+    static func snap(_ z: Double) -> Double { min(max((z * 10).rounded() / 10, steps[0]), steps[steps.count - 1]) }
 
     static func next(_ z: Double) -> Double { steps.first { $0 > z + 0.001 } ?? steps[steps.count - 1] }
     static func previous(_ z: Double) -> Double { steps.last { $0 < z - 0.001 } ?? steps[0] }

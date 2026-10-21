@@ -12,7 +12,7 @@ final class PersistenceTests: XCTestCase {
         var group = StickGroup(sticks: [stick, Stick(name: "Links", isHidden: true)])
         group.isPinned = true
         group.isHidden = true
-        group.zoom = 1.25
+        group.zoom = 1.2
         group.originX = 100
         group.topY = 700
         return AppState(theme: .dark, groups: [group, StickGroup(sticks: [Stick(name: "Other")])])
@@ -271,7 +271,7 @@ final class StoreTests: XCTestCase {
         s.zoomIn(group: g1)
         s.zoomIn(group: g1)
         s.zoomOut(group: g2)
-        XCTAssertEqual(s.zoom(of: g1), 1.25)
+        XCTAssertEqual(s.zoom(of: g1), 1.2)
         XCTAssertEqual(s.zoom(of: g2), 0.9)
         s.resetZoom(group: g1)
         XCTAssertEqual(s.zoom(of: g1), 1.0)
@@ -284,6 +284,18 @@ final class StoreTests: XCTestCase {
         XCTAssertEqual(s.zoom(of: g1), 2.0)
         for _ in 0..<30 { s.zoomOut(group: g1) }
         XCTAssertEqual(s.zoom(of: g1), 0.6)
+    }
+
+    func testZoomMovesInTenPercentSteps() {
+        XCTAssertEqual(Zoom.steps.count, 15)
+        XCTAssertEqual(Zoom.next(1.0), 1.1)
+        XCTAssertEqual(Zoom.next(1.9), 2.0)
+        XCTAssertEqual(Zoom.previous(1.0), 0.9)
+        XCTAssertEqual(Zoom.previous(0.7), 0.6)
+        XCTAssertEqual(Zoom.snap(1.25), 1.3)
+        XCTAssertEqual(Zoom.snap(1.75), 1.8)
+        XCTAssertEqual(Zoom.snap(0.1), 0.6)
+        XCTAssertEqual(Zoom.next(Zoom.snap(1.5)), 1.6)
     }
 
     func testZoomCommandsTargetActiveGroup() {

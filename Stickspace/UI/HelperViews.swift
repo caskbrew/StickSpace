@@ -458,7 +458,7 @@ struct AboutView: View {
             "Press Undo in the notice or ⌘Z to bring it back.",
         ]),
         Topic(title: "Zoom per Space", symbol: "magnifyingglass", bullets: [
-            "⌘+ (or ⌘=) zooms in, ⌘− zooms out, ⌘0 resets. The range is 60%–200%. The space header menu has the same items.",
+            "⌘+ (or ⌘=) zooms in, ⌘− zooms out, ⌘0 resets. The range is 60%–200% in steps of 10%. The space header menu has the same items.",
             "Zoom applies only to the space you last used and is remembered per space.",
         ]),
         Topic(title: "Git Sync", symbol: "arrow.triangle.2.circlepath", bullets: [

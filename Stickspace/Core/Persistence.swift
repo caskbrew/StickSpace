@@ -99,7 +99,7 @@ enum StateCodec {
                     GroupOrigin(source: o.source, file: o.file,
                                 base: GroupSnapshot(id: o.base.id, name: o.base.name, blocks: o.base.blocks.map(block)))
                 })
-            }, isPinned: g.pinned, isHidden: g.hidden ?? false, zoom: min(max(g.zoom, Zoom.steps[0]), Zoom.steps[Zoom.steps.count - 1]),
+            }, isPinned: g.pinned, isHidden: g.hidden ?? false, zoom: Zoom.snap(g.zoom),
                        originX: g.originX, topY: g.topY,
                        // Files from before spaces had names: use the old joined title.
                        name: g.name ?? (g.sticks.isEmpty ? "Space" : g.sticks.map(\.name).joined(separator: " · ")),
