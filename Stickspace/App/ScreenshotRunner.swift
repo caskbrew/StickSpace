@@ -97,7 +97,7 @@ final class ScreenshotRunner {
     func runHero() {
         let screen = NSScreen.main ?? NSScreen.screens[0]
         let vis = screen.visibleFrame
-        let size = NSSize(width: 1240, height: 400)
+        let size = NSSize(width: 1240, height: 470)
         let origin = NSPoint(x: vis.minX + 60, y: vis.maxY - size.height - 30)
         let backdrop = NSWindow(contentRect: NSRect(origin: origin, size: size), styleMask: [.borderless], backing: .buffered, defer: false)
         backdrop.isOpaque = true
@@ -135,9 +135,13 @@ final class ScreenshotRunner {
         var dev = full(); dev.name = "Dev"
         dev.blocks = [Block(type: .text, text: "npm run dev"), Block(type: .link, text: "https://localhost:3000"), Block(type: .text, text: "api-token-1234", isMasked: true)]
         var a = newGroup([fullStick(), Stick(name: "Links"), Stick(name: "Personal")])
+        a.name = "Work"
         var b = newGroup([editing, Stick(name: "Notes")])
+        b.name = "Notes"
         var c = newGroup([Stick(name: "Workspace", blocks: [Block(text: "https://github.com")]), Stick(name: "Links"), Stick(name: "Personal")])
         var d = newGroup([dev])
+        d.name = "Dev"
+        c.name = "Links"
         c.isPinned = true
         place(0, x: 50, topOffset: 48, &a)
         place(1, x: 450, topOffset: 48, &b)
@@ -149,28 +153,29 @@ final class ScreenshotRunner {
 
         for theme in [ThemeChoice.light, .dark] {
             view.dark = theme == .dark
-            // Scene 1: stacks
+            // Scene 1: spaces
             store.load(AppState(theme: theme, groups: sceneStacks))
             if let edit = sceneStacks[1].sticks[0].blocks.first?.id { store.editingBlock = edit }
             windows.sync()
             wait(1.4)
             for g in sceneStacks { windows.controllers[g.id]?.panel.orderFrontRegardless(); windows.controllers[g.id]?.panel.level = above }
             wait(0.6)
-            shoot(dir.appendingPathComponent("hero-stacks-\(theme.rawValue).png").path)
+            shoot(dir.appendingPathComponent("hero-spaces-\(theme.rawValue).png").path)
 
             // Scene 2: helper windows
             store.editingBlock = nil
             let stickID = sceneStacks[0].sticks[0].id
             helpers.showExport(stick: stickID)
-            helpers.showImport(group: nil, index: nil, initialText: #"{"sticks":[{"name":"Workspace","sections":[{"type":"text","text":"Hello"}]},{"name":"Links","sections":[{"type":"link","url":"https://github.com"}]}]}"#)
+            helpers.showImport(group: nil, index: nil, initialText: #"{"version":2,"name":"Platform","groups":[{"name":"Workspace","entities":[{"type":"text","text":"Hello"}]},{"name":"Links","entities":[{"type":"link","url":"https://github.com","title":"GitHub","tags":["dev"]}]}]}"#)
             wait(1.0)
             func put(_ key: String, x: CGFloat, topOff: CGFloat) {
                 guard let w = helpers.window(key) else { return }
                 w.level = above
+                w.setContentSize(NSSize(width: 520, height: 340))
                 w.setFrameOrigin(NSPoint(x: origin.x + x, y: origin.y + size.height - topOff - w.frame.height))
             }
-            put("export", x: 110, topOff: 28)
-            put("import", x: 670, topOff: 28)
+            put("export", x: 60, topOff: 30)
+            put("import", x: 660, topOff: 30)
             for g in sceneStacks { windows.controllers[g.id]?.panel.orderOut(nil) }
             wait(0.8)
             shoot(dir.appendingPathComponent("hero-windows-\(theme.rawValue).png").path)
@@ -197,10 +202,10 @@ final class ScreenshotRunner {
             Variant(name: "02-expanded", sticks: [fullStick, Stick(name: "Links"), Stick(name: "Personal")]),
             Variant(name: "03-pinned", sticks: collapsed(), pinned: true),
             Variant(name: "04-editing", sticks: [editing, Stick(name: "Links")]),
-            Variant(name: "05-empty-stick", sticks: [Stick(name: "Workspace"), empty]),
-            Variant(name: "06-multiline-hidden-line", sticks: [multi, Stick(name: "Archive", isHidden: true)]),
+            Variant(name: "05-empty-group", sticks: [Stick(name: "Workspace"), empty]),
+            Variant(name: "06-hidden-items-listed", sticks: [multi, Stick(name: "Archive", isHidden: true)]),
             Variant(name: "07-zoom-80", sticks: [fullStick, Stick(name: "Links")], zoom: 0.8),
-            Variant(name: "08-zoom-125", sticks: [fullStick, Stick(name: "Links")], zoom: 1.25),
+            Variant(name: "08-zoom-120", sticks: [fullStick, Stick(name: "Links")], zoom: 1.2),
             Variant(name: "09-space-collapsed", sticks: collapsed(), collapsed: true),
             Variant(name: "10-empty-space", sticks: []),
         ]
@@ -234,32 +239,32 @@ final class ScreenshotRunner {
             windows.sync()
             wait(1.2)
             wait(1.0)
-            for (i, v) in variants.enumerated() { capture(windows.controllers[groups[i].id]?.panel, path("group-" + v.name)) }
+            for (i, v) in variants.enumerated() { capture(windows.controllers[groups[i].id]?.panel, path("space-" + v.name)) }
 
             // Revealed sensitive block
             let secret = groups[1].sticks[0].blocks.first(where: \.isMasked)!.id
             store.toggleReveal(secret)
             wait(0.8)
-            capture(windows.controllers[groups[1].id]?.panel, path("group-02b-expanded-revealed"))
+            capture(windows.controllers[groups[1].id]?.panel, path("space-02b-expanded-revealed"))
             store.hideReveal(secret)
 
             // Helper windows
             let gid = groups[1].id
             let stickID = groups[1].sticks[0].id
-            let multiJSON = #"{"sticks":[{"name":"Workspace","sections":[{"type":"text","text":"Hello"}]},{"name":"Links","sections":[{"type":"link","url":"https://github.com"},{"type":"link","url":"https://figma.com"}]},{"name":"Personal","sections":[]}]}"#
-            let oneJSON = #"{"name":"Workspace","sections":[{"type":"text","text":"Hello"}]}"#
+            let multiJSON = #"{"version":2,"name":"Platform","groups":[{"name":"Workspace","entities":[{"type":"text","text":"Hello"}]},{"name":"Links","entities":[{"type":"link","url":"https://github.com","title":"GitHub","tags":["dev"]},{"type":"link","url":"https://figma.com"}]},{"name":"Personal","entities":[]}]}"#
+            let oneJSON = #"{"version":2,"name":"Workspace","entities":[{"type":"text","text":"Hello"}]}"#
             let steps: [(String, String, () -> Void)] = [
-                ("window-new-stick", "new", { self.helpers.showNewStick(group: gid, index: nil) }),
-                ("window-new-stack", "new", { self.helpers.showNewStick(group: nil, index: nil) }),
+                ("window-new-group", "new", { self.helpers.showNewStick(group: gid, index: nil) }),
+                ("window-new-space", "new", { self.helpers.showNewStick(group: nil, index: nil) }),
                 ("window-rename", "rename", { self.helpers.showRename(stick: stickID) }),
-                ("window-import-stick", "import", { self.helpers.showImport(group: gid, index: nil, initialText: oneJSON) }),
-                ("window-import-stack", "import", { self.helpers.showImport(group: nil, index: nil, initialText: multiJSON) }),
+                ("window-import-group", "import", { self.helpers.showImport(group: gid, index: nil, initialText: oneJSON) }),
+                ("window-import-space", "import", { self.helpers.showImport(group: nil, index: nil, initialText: multiJSON) }),
                 ("window-import-large", "import", {
                     self.helpers.showImport(group: nil, index: nil, initialText: multiJSON)
                     self.helpers.window("import")?.setContentSize(NSSize(width: 720, height: 560))
                 }),
                 ("window-import-empty", "import", { self.helpers.showImport(group: nil, index: nil) }),
-                ("window-import-error", "import", { self.helpers.showImport(group: nil, index: nil, initialText: "{\n  \"sticks\": [\n    { oops }\n  ]\n}") }),
+                ("window-import-error", "import", { self.helpers.showImport(group: nil, index: nil, initialText: "{\n  \"groups\": [\n    { oops }\n  ]\n}") }),
                 ("window-import-git-space", "import", { self.helpers.showImport(group: nil, index: nil, tab: .git) }),
                 ("window-import-git-file", "import", { self.helpers.showImport(group: gid, index: nil, tab: .git) }),
                 ("window-export-git-group", "export", { self.helpers.showExport(stick: stickID, tab: .git) }),
@@ -282,7 +287,7 @@ final class ScreenshotRunner {
             if let block = store.stick(stickID)?.blocks.first?.id {
                 store.deleteBlock(block)
                 wait(1.0)
-                capture(toasts.panelWindow, path("toast-line-deleted"))
+                capture(toasts.panelWindow, path("toast-entity-deleted"))
                 store.undo()
                 wait(0.4)
             }

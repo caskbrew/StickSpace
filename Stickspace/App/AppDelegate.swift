@@ -58,7 +58,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // A Timer in .common modes still fires while the menu is tracking; GCD's main queue does not.
         let timer = Timer(timeInterval: 0.8, repeats: false) { [self] _ in
             let list = CGWindowListCopyWindowInfo([.optionOnScreenOnly], kCGNullWindowID) as? [[String: Any]] ?? []
-            let menu = list.filter { ($0[kCGWindowOwnerName as String] as? String) == ProcessInfo.processInfo.processName && ($0[kCGWindowLayer as String] as? Int) == 101 }
+            let menu = list.filter { ($0[kCGWindowOwnerName as String] as? String) == (NSRunningApplication.current.localizedName ?? ProcessInfo.processInfo.processName) && ($0[kCGWindowLayer as String] as? Int) == 101 }
                 .max { ($0[kCGWindowBounds as String] as? [String: CGFloat])?["Height"] ?? 0 < ($1[kCGWindowBounds as String] as? [String: CGFloat])?["Height"] ?? 0 }
             if let id = menu?[kCGWindowNumber as String] as? Int {
                 let p = Process()

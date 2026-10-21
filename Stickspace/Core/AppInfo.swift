@@ -6,7 +6,11 @@ enum AppInfo {
     static var isDev: Bool { Bundle.main.bundleIdentifier?.hasSuffix(".dev") == true }
 
     static var name: String {
-        (Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String) ?? "StickSpace"
+        #if DEBUG
+        // Documentation screenshots are taken with the Debug build but should say "StickSpace".
+        if let override = ProcessInfo.processInfo.environment["STICKSPACE_NAME"] { return override }
+        #endif
+        return (Bundle.main.object(forInfoDictionaryKey: "CFBundleDisplayName") as? String) ?? "StickSpace"
     }
 
     /// Folder name under Application Support. The name predates the "StickSpace" spelling; it stays so existing data is found.
