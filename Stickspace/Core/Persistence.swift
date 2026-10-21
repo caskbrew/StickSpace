@@ -164,12 +164,13 @@ final class StatePersistence {
     func load() -> LoadResult { file.load() }
 
     func scheduleSave(_ state: AppState) {
-        queue.async {
-            self.pending = state
-            self.timer?.cancel()
+        queue.async { [weak self] in
+            guard let self else { return }
+            pending = state
+            timer?.cancel()
             let work = DispatchWorkItem { [weak self] in self?.writePending() }
-            self.timer = work
-            self.queue.asyncAfter(deadline: .now() + 0.4, execute: work)
+            timer = work
+            queue.asyncAfter(deadline: .now() + 0.4, execute: work)
         }
     }
 

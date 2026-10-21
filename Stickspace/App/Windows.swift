@@ -296,7 +296,7 @@ final class WindowManager {
         switch event.keyCode {
         case 24, 69: store.zoomIn(group: group)
         case 27, 78: store.zoomOut(group: group)
-        case 29, 82 where mods == .command: store.resetZoom(group: group)
+        case 29 where mods == .command, 82 where mods == .command: store.resetZoom(group: group)
         default: return false
         }
         return true

@@ -84,18 +84,11 @@ final class SyncController: ObservableObject {
                 DispatchQueue.main.async {
                     bind(SyncExport.bound(source, result: result))
                     done(.success(()))
-                    self.onMessage("Exported", Self.describeExport(result, groups: plan.groupNames), result?.link)
+                    self.onMessage("Exported", SyncMessages.exportDone(result, groups: plan.groupNames), result?.link)
                     self.check()
                 }
             } catch { DispatchQueue.main.async { done(.failure(error)) } }
         }
-    }
-
-    static func describeExport(_ result: GitRepo.PushResult?, groups: [String]) -> String {
-        let what = groups.joined(separator: ", ")
-        guard let result else { return "The repository already has \(what). It is now linked to this one." }
-        if result.direct { return "Wrote \(what) to \(result.branch). Others can import it now." }
-        return "Pushed \(what) to the branch \(result.branch). Merge the request; then others can import it (Import → GIT), and Sync here will find it."
     }
 
     // MARK: Sync and push
@@ -115,7 +108,7 @@ final class SyncController: ObservableObject {
                     let report = self.store.applySync(space: id, fetched: fetched)
                     self.busy.remove(id)
                     self.updates.remove(id)
-                    self.onMessage("Synced", Self.describe(report), nil)
+                    self.onMessage("Synced", SyncMessages.syncDone(report), nil)
                 }
             } catch { self.fail("Sync failed", error, id) }
         }
@@ -155,34 +148,11 @@ final class SyncController: ObservableObject {
     }
 
     private func reportPush(_ summaries: [SyncService.PushSummary], afterSync report: SyncMerge.SpaceReport) {
-        let pushed = summaries.filter { $0.result != nil }
-        if pushed.isEmpty {
+        guard let done = SyncMessages.pushDone(summaries, afterSync: report) else {
             onMessage("Nothing to push", "The repository already has your changes.", nil)
             return
         }
-        var lines: [String] = []
-        for s in pushed {
-            guard let r = s.result else { continue }
-            let what = s.groups.joined(separator: ", ")
-            lines.append(r.direct ? "Pushed \(what) to \(r.branch)." : "Pushed \(what) to the branch \(r.branch).")
-        }
-        if !report.isEmpty { lines.append("Before pushing, " + Self.describe(report).lowercasedFirst) }
-        onMessage("Pushed", lines.joined(separator: "\n"), pushed.compactMap { $0.result?.link }.first)
-    }
-
-    static func describe(_ r: SyncMerge.SpaceReport) -> String {
-        if r.isEmpty { return "Everything is up to date." }
-        var parts: [String] = []
-        if r.added > 0 { parts.append("\(r.added) group\(r.added == 1 ? "" : "s") added") }
-        if r.updated > 0 { parts.append("\(r.updated) updated") }
-        if r.removed > 0 { parts.append("\(r.removed) removed") }
-        if r.detached > 0 { parts.append("\(r.detached) kept as custom (deleted upstream)") }
-        if r.waiting > 0 { parts.append("waiting for a merge request to be merged") }
-        var text = parts.joined(separator: ", ") + "."
-        if r.conflicts > 0 {
-            text += "\n\(r.conflicts) item\(r.conflicts == 1 ? " was" : "s were") changed on both sides: yours \(r.conflicts == 1 ? "was" : "were") kept. Use Revert in the group or entity menu to take the repository's version."
-        }
-        return text
+        onMessage("Pushed", done.text, done.link)
     }
 
     // MARK: Background check
@@ -204,8 +174,4 @@ final class SyncController: ObservableObject {
             DispatchQueue.main.async { self.updates = found }
         }
     }
-}
-
-private extension String {
-    var lowercasedFirst: String { prefix(1).lowercased() + dropFirst() }
 }

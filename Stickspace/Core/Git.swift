@@ -145,6 +145,9 @@ struct GitRepo {
     /// Writes `files` (repo path → text) on top of `ref`, commits and pushes: to a new branch, or straight to `ref`.
     /// Returns nil when the files already match the repository.
     func push(files: [String: String], ref: String, direct: Bool, message: String, branchName: String) throws -> PushResult? {
+        guard files.keys.allSatisfy(Interchange.isSafeRelative) else {
+            throw GitError(message: "A file path points outside the repository.")
+        }
         let base = try resolve(ref: ref)
         guard base.isBranch else { throw GitError(message: "“\(ref)” is a tag, so it is read-only. Use a branch to push changes.") }
 

@@ -23,6 +23,19 @@ enum SyncService {
         var singles: [UUID: GroupRead] = [:]
     }
 
+    /// What the user typed ends up on a git command line and in file paths: keep it harmless.
+    static func validate(_ source: GitSource) throws {
+        let url = source.url.trimmingCharacters(in: .whitespaces)
+        guard !url.isEmpty, !url.hasPrefix("-") else { throw GitError(message: "That is not a repository address.") }
+        guard !source.ref.isEmpty, !source.ref.hasPrefix("-"), !source.ref.contains(where: \.isWhitespace), !source.ref.contains("..") else {
+            throw GitError(message: "That is not a branch or tag name.")
+        }
+        guard Interchange.isSafeRelative(source.path) else {
+            throw GitError(message: "The path must be inside the repository, like platform/stickspace.json (no leading “/”, no “..”).")
+        }
+        if let key = source.sshKey, key.contains("\"") || key.contains("\n") { throw GitError(message: "That is not a valid key path.") }
+    }
+
     // MARK: Reading
 
     static func readSpace(_ source: GitSource, repo: GitRepo) throws -> SpaceRead {
@@ -32,6 +45,7 @@ enum SyncService {
 
     /// With `tolerateMissing` a space file that is not there yet (an unmerged export) gives nil instead of an error.
     static func readSpace(_ source: GitSource, repo: GitRepo, tolerateMissing: Bool) throws -> SpaceRead? {
+        try validate(source)
         let head = try repo.fetch(ref: source.ref)
         guard let text = try repo.read(source.path, at: head.sha) else {
             if tolerateMissing { return nil }
@@ -66,6 +80,7 @@ enum SyncService {
 
     /// A group file. `required` is true when importing (a missing file is an error); false when syncing (it was deleted upstream).
     static func readGroup(_ source: GitSource, repo: GitRepo, required: Bool) throws -> GroupRead {
+        try validate(source)
         let head = try repo.fetch(ref: source.ref)
         guard let text = try repo.read(source.path, at: head.sha) else {
             if required { throw GitError(message: "“\(source.path)” was not found on “\(source.ref)”.") }
@@ -148,6 +163,7 @@ enum SyncService {
     /// Writes new files to the repository on a feature branch (or straight to `ref`). Never overwrites a file that is
     /// already there with different content: that is somebody else's.
     static func export(_ plan: SyncExport.Plan, source: GitSource, repoFor: RepoFor, user: String, now: Date = Date()) throws -> GitRepo.PushResult? {
+        try validate(source)
         let repo = repoFor(source)
         let head = try repo.fetch(ref: source.ref)
         for (path, text) in plan.files.sorted(by: { $0.key < $1.key }) {

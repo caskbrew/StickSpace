@@ -236,7 +236,7 @@ final class AppStore: ObservableObject {
     }
 
     private static func reordered<T: Identifiable>(_ items: [T], by ids: [UUID], isHidden: (T) -> Bool) -> [T]? where T.ID == UUID {
-        let byID = Dictionary(uniqueKeysWithValues: items.map { ($0.id, $0) })
+        let byID = Dictionary(items.map { ($0.id, $0) }) { first, _ in first }
         let ordered = ids.compactMap { byID[$0] }
         guard ordered.count == ids.count else { return nil }
         let slots: [Int]

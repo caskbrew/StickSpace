@@ -60,9 +60,10 @@ enum SyncMerge {
 
         // Entities, by id.
         let localShared = local.sharedBlocks
-        let baseByID = Dictionary(uniqueKeysWithValues: base.blocks.map { ($0.id, $0) })
-        let remoteByID = Dictionary(uniqueKeysWithValues: remote.blocks.map { ($0.id, $0) })
-        let localByID = Dictionary(uniqueKeysWithValues: localShared.map { ($0.id, $0) })
+        // `uniquingKeysWith`: a hand-edited state file with a repeated id must not crash the merge.
+        let baseByID = Dictionary(base.blocks.map { ($0.id, $0) }) { first, _ in first }
+        let remoteByID = Dictionary(remote.blocks.map { ($0.id, $0) }) { first, _ in first }
+        let localByID = Dictionary(localShared.map { ($0.id, $0) }) { first, _ in first }
 
         var merged: [UUID: Block] = [:]
         let ids = Set(baseByID.keys).union(remoteByID.keys).union(localByID.keys)
@@ -148,7 +149,7 @@ enum SyncMerge {
     static func mergeSpace(_ space: StickGroup, remote: [RemoteGroup], head: String) -> (space: StickGroup, report: SpaceReport) {
         var out = space
         var report = SpaceReport()
-        let remoteByID = Dictionary(uniqueKeysWithValues: remote.map { ($0.snapshot.id, $0) })
+        let remoteByID = Dictionary(remote.map { ($0.snapshot.id, $0) }) { first, _ in first }
 
         var sticks: [Stick] = []
         for stick in space.sticks {
